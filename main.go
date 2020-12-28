@@ -38,10 +38,12 @@ func main() {
 					return
 				}
 				jsonCache, err = json.MarshalIndent(stats, "", "  ")
-				time.AfterFunc(10*time.Second, func() { jsonCache = nil })
 				if err != nil {
+					jsonCache = nil
 					http.Error(writer, "failed to convert json", http.StatusInternalServerError)
 					return
+				} else {
+					time.AfterFunc(10*time.Second, func() { jsonCache = nil })
 				}
 			}()
 		}
