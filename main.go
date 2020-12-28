@@ -15,6 +15,7 @@ func main() {
 	logDirectory := flag.String("logs", "/var/log/caddy", "Path to the directory where Caddy's logs are stored")
 	geoDatabase := flag.String("geo", "/etc/maxmind/country.mmdb", "Path to your .mmdb file")
 	listeningPort := flag.String("port", "5734", "Port on which the program should listen")
+	webDirectory := flag.String("web", "web/dist", "Path to the directory of the web interface")
 	flag.Parse()
 
 	// For caching parse results in serialized form
@@ -23,7 +24,7 @@ func main() {
 	var waitGroup sync.WaitGroup
 
 	// Handler for serving web files
-	http.Handle("/", http.FileServer(http.Dir("web/dist")))
+	http.Handle("/", http.FileServer(http.Dir(*webDirectory)))
 
 	// Handle function for serving statistics parsed from the logs in JSON format
 	http.HandleFunc("/stats", func(writer http.ResponseWriter, request *http.Request) {
