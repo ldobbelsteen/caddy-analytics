@@ -9,7 +9,7 @@ FROM golang AS bin-builder
 WORKDIR /build
 COPY . .
 RUN go get -d
-RUN go build -o bin
+RUN CGO_ENABLED=0 go build -o bin
 
 FROM scratch
 COPY --from=web-builder /build/dist /app/web
