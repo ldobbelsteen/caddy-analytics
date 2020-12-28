@@ -14,4 +14,4 @@ RUN go build -o bin
 FROM scratch
 COPY --from=web-builder /build/dist /app/web
 COPY --from=bin-builder /build/bin /app/caddy-analytics
-CMD ["/app/caddy-analytics", "--web", "/app/web", "--geo", "/app/geo.db"]
+CMD ["/app/caddy-analytics", "--web", "/app/web", "--geo", "/app/geo.mmdb"]
