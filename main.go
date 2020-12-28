@@ -19,35 +19,34 @@ func main() {
 	flag.Parse()
 
 	// For caching parse results in serialized form
-	var jsonStats []byte
-	var lastParseTime time.Time
-	var waitGroup sync.WaitGroup
+	var jsonCache []byte
+	var parseWait sync.WaitGroup
 
 	// Handler for serving web files
 	http.Handle("/", http.FileServer(http.Dir(*webDirectory)))
 
 	// Handle function for serving statistics parsed from the logs in JSON format
 	http.HandleFunc("/stats", func(writer http.ResponseWriter, request *http.Request) {
-		waitGroup.Wait()
-		if time.Since(lastParseTime).Seconds() > 10 {
-			waitGroup.Add(1)
+		parseWait.Wait()
+		if jsonCache == nil {
+			parseWait.Add(1)
 			func() {
-				defer waitGroup.Done()
+				defer parseWait.Done()
 				stats, err := parseLogs(*logDirectory, *geoDatabase)
 				if err != nil {
 					http.Error(writer, "failed to parse logs", http.StatusInternalServerError)
 					return
 				}
-				jsonStats, err = json.MarshalIndent(stats, "", "  ")
+				jsonCache, err = json.MarshalIndent(stats, "", "  ")
+				time.AfterFunc(10*time.Second, func() { jsonCache = nil })
 				if err != nil {
 					http.Error(writer, "failed to convert json", http.StatusInternalServerError)
 					return
 				}
-				lastParseTime = time.Now()
 			}()
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		writer.Write(jsonStats)
+		writer.Write(jsonCache)
 	})
 
 	// Start listening
