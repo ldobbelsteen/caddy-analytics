@@ -16,7 +16,13 @@ func main() {
 	geoDatabase := flag.String("geo", "/etc/maxmind/country.mmdb", "Path to your .mmdb file")
 	listeningPort := flag.String("port", "5734", "Port on which the program should listen")
 	webDirectory := flag.String("web", "web/dist", "Path to the directory of the web interface")
+	cacheTime := flag.Int("cache", 10, "Number of seconds to cache parse results before discarding")
 	flag.Parse()
+
+	// Validate arguments
+	if *cacheTime < 1 {
+		log.Fatal("Invalid cache time!")
+	}
 
 	// For caching parse results in serialized form
 	var jsonCache []byte
@@ -45,7 +51,7 @@ func main() {
 				parseWait.Done()
 				return
 			}
-			time.AfterFunc(10*time.Second, func() { jsonCache = nil })
+			time.AfterFunc(time.Duration(*cacheTime)*time.Second, func() { jsonCache = nil })
 			parseWait.Done()
 		}
 		writer.Header().Set("Content-Type", "application/json")
