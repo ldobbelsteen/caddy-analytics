@@ -2,121 +2,151 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
+	"math"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mssola/user_agent"
 )
 
 type Statistics struct {
-	LogDir        string              `json:"logDirectory"`
-	LogSize       int64               `json:"logSizeBytes"`
-	LogLines      int                 `json:"logLines"`
+	LogDirectory  string              `json:"logDirectory"`
+	LogSizeBytes  int64               `json:"logSizeBytes"`
 	ParseDuration float64             `json:"parseDurationSeconds"`
 	FirstStamp    float64             `json:"firstStampUnix"`
 	LastStamp     float64             `json:"lastStampUnix"`
-	Counters      map[string]*Counter `json:"visitors"`
+	Counters      map[string]*Counter `json:"counters"`
 }
 
 type Counter struct {
-	Requests     int                   `json:"totalRequests"`
-	Duration     float64               `json:"totalLatency"`
-	Bytes        int                   `json:"totalSentBytes"`
-	Unique       int                   `json:"uniqueVisitors"`
-	Nature       map[string]int        `json:"nature"`
-	Browsers     map[string]int        `json:"browsers"`
-	Platforms    map[string]int        `json:"platforms"`
-	Visitors     map[UniqueVisitor]int `json:"-"`
-	Referers     map[string]int        `json:"referers"`
-	Ciphers      map[string]int        `json:"ciphers"`
-	Tls          map[string]int        `json:"tls"`
-	Countries    map[string]int        `json:"countries"`
-	Methods      map[string]int        `json:"methods"`
-	Locations    map[string]int        `json:"locations"`
-	Statuses     map[int]int           `json:"statuses"`
-	Protocols    map[string]int        `json:"protocols"`
-	Languages    map[string]int        `json:"preferredLanguages"`
-	Encodings    map[string]int        `json:"encodings"`
-	ContentTypes map[string]int        `json:"contentTypes"`
+	Total  Hits           `json:"total"`
+	Hourly map[Hour]*Hits `json:"hourly"`
+	Mobile struct {
+		True  int `json:"true"`
+		False int `json:"false"`
+	} `json:"visitorMobile"`
+	Browsers        map[string]int            `json:"visitorBrowsers"`
+	Systems         map[string]int            `json:"visitorSystems"`
+	Languages       map[string]int            `json:"visitorPrefLanguages"`
+	Countries       map[string]int            `json:"visitorCountries"`
+	EncodingSupport map[string]int            `json:"visitorEncodingSupport"`
+	Protocols       map[string]int            `json:"requestProtocols"`
+	Methods         map[string]int            `json:"requestMethods"`
+	CryptoProtocols map[string]int            `json:"requestCryptoProtocols"`
+	CryptoCiphers   map[string]int            `json:"requestCryptoCiphers"`
+	ContentTypes    map[string]int            `json:"responseContentTypes"`
+	Locations       map[string]*StatusCounter `json:"requestLocationResponses"`
 }
 
-type UniqueVisitor struct {
-	IP    string
-	Agent string
-}
-
-func addToStats(stats *Statistics, data *LogLine) {
-
-	// Get the counter corresponding to the host
-	host := data.Request.Host
-	counter := stats.Counters[host]
-
-	// Create counter if it doesn't yet exist
-	if counter == nil {
-		stats.Counters[host] = &Counter{
-			Browsers:     map[string]int{},
-			Visitors:     map[UniqueVisitor]int{},
-			Platforms:    map[string]int{},
-			Nature:       map[string]int{},
-			Tls:          map[string]int{},
-			Ciphers:      map[string]int{},
-			Countries:    map[string]int{},
-			Methods:      map[string]int{},
-			Referers:     map[string]int{},
-			Locations:    map[string]int{},
-			Statuses:     map[int]int{},
-			Protocols:    map[string]int{},
-			Languages:    map[string]int{},
-			Encodings:    map[string]int{},
-			ContentTypes: map[string]int{},
-		}
-		counter = stats.Counters[host]
+func newCounter() *Counter {
+	return &Counter{
+		Hourly:          map[Hour]*Hits{},
+		Browsers:        map[string]int{},
+		Systems:         map[string]int{},
+		Languages:       map[string]int{},
+		Countries:       map[string]int{},
+		EncodingSupport: map[string]int{},
+		Protocols:       map[string]int{},
+		Methods:         map[string]int{},
+		CryptoProtocols: map[string]int{},
+		CryptoCiphers:   map[string]int{},
+		ContentTypes:    map[string]int{},
+		Locations:       map[string]*StatusCounter{},
 	}
+}
 
-	// Increment log line count
-	stats.LogLines += 1
-	counter.Requests += 1
+type Hour struct {
+	Year        int
+	MonthOfYear int
+	DayOfMonth  int
+	HourOfDay   int
+}
 
-	// Get the pure visitor IP
-	ip, _, err := net.SplitHostPort(data.Request.Address)
+func (hour Hour) MarshalText() ([]byte, error) {
+	year := strconv.Itoa(hour.Year)
+	monthOfYear := strconv.Itoa(hour.MonthOfYear)
+	dayOfMonth := strconv.Itoa(hour.DayOfMonth)
+	hourOfDay := strconv.Itoa(hour.HourOfDay)
+	str := year + "/" + monthOfYear + "/" + dayOfMonth + ":" + hourOfDay
+	return []byte(str), nil
+}
+
+type Hits struct {
+	Requests  int              `json:"requests"`
+	Latency   float64          `json:"totalLatency"`
+	SentBytes int              `json:"sentBytes"`
+	Visitors  int              `json:"visitors"`
+	Observed  map[Visitor]bool `json:"-"`
+}
+
+func newHits() *Hits {
+	return &Hits{
+		Observed: map[Visitor]bool{},
+	}
+}
+
+type Visitor struct {
+	IP           string
+	RawUserAgent string
+}
+
+type StatusCounter struct {
+	Informational int `json:"informational"`
+	Successful    int `json:"successful"`
+	Redirection   int `json:"redirection"`
+	ClientError   int `json:"clientError"`
+	ServerError   int `json:"serverError"`
+	Cancelled     int `json:"cancelled"`
+}
+
+// Remove the port suffix from a string if there is one
+func stripPortSuffix(str string) string {
+	host, _, err := net.SplitHostPort(str)
 	if err != nil {
-		log.Fatal("Failed to parse remote address: ", err)
-	}
-
-	// Get the first user agent
-	var rawUserAgent string
-	if len(data.Request.Headers.UserAgent) > 0 {
-		rawUserAgent = data.Request.Headers.UserAgent[0]
-	}
-
-	// Record observation of current visitor
-	counter.Visitors[UniqueVisitor{ip, rawUserAgent}] += 1
-
-	// Parse and analyze raw user agent
-	uaInfo := user_agent.New(rawUserAgent)
-	if uaInfo.Bot() {
-		counter.Nature["bot"] += 1
-	} else if uaInfo.Mobile() {
-		counter.Nature["mobile"] += 1
+		return str
 	} else {
-		counter.Nature["other"] += 1
+		return host
 	}
-	platform := uaInfo.OS()
-	if platform == "" {
-		platform = "Unknown"
-	}
-	counter.Platforms[platform] += 1
-	browser, _ := uaInfo.Browser()
-	if browser == "" {
-		browser = "Unknown"
-	}
-	counter.Browsers[browser] += 1
+}
 
-	// Parse client's preferred language
-	var language string
-	if len(data.Request.Headers.Languages) > 0 {
-		raw := data.Request.Headers.Languages[0]
+// Remove the http(s) prefix from a string if there is one
+func stripHttpPrefix(str string) string {
+	if strings.HasPrefix(str, "http://") {
+		return str[7:]
+	} else if strings.HasPrefix(str, "https://") {
+		return str[8:]
+	} else {
+		return str
+	}
+}
+
+// Get the first user agent from a slice of user agents
+func getRawUserAgent(slc []string) string {
+	if len(slc) > 0 {
+		return slc[0]
+	} else {
+		return ""
+	}
+}
+
+// Convert a unix timestamp to the hour it is in
+func unixToHour(unix float64) Hour {
+	seconds, decimals := math.Modf(unix)
+	time := time.Unix(int64(seconds), int64(decimals*(1e9)))
+	return Hour{
+		Year:        time.Year(),
+		MonthOfYear: int(time.Month()),
+		DayOfMonth:  time.Day(),
+		HourOfDay:   time.Hour(),
+	}
+}
+
+// Get preferred language from an Accept-Language header
+func getPreferredLanguage(slc []string) string {
+	if len(slc) > 0 {
+		raw := slc[0]
 		comma := strings.IndexRune(raw, ',')
 		if comma > 0 {
 			raw = raw[:comma]
@@ -125,69 +155,146 @@ func addToStats(stats *Statistics, data *LogLine) {
 		if dash > 0 {
 			raw = raw[:dash]
 		}
-		language = raw
+		return raw
 	} else {
-		language = "unspecified"
+		return "none"
 	}
-	counter.Languages[language] += 1
+}
 
-	// Parse client's supported encodings
-	if len(data.Request.Headers.Encodings) > 0 {
-		raw := data.Request.Headers.Encodings[0]
-		slice := strings.Split(raw, ",")
-		for i := range slice {
-			clean := strings.TrimSpace(slice[i])
-			counter.Encodings[clean] += 1
+// Get supported encoding/compression schemes from Accept-Encodings header
+func getSupportedEncodings(slc []string) []string {
+	if len(slc) > 0 {
+		slc := strings.Split(slc[0], ",")
+		for i := range slc {
+			slc[i] = strings.TrimSpace(slc[i])
 		}
+		return slc
+	} else {
+		return []string{}
 	}
+}
 
-	// Parse client's referer if it exists
-	if len(data.Request.Headers.Referer) > 0 {
-		referer := data.Request.Headers.Referer[0]
-		counter.Referers[referer] += 1
-	}
-
-	// Parse response content type
-	if len(data.Response.ContentType) > 0 {
-		raw := data.Response.ContentType[0]
+// Get content type from response header
+func getContentType(slc []string) string {
+	if len(slc) > 0 {
+		raw := slc[0]
 		semicolon := strings.IndexRune(raw, ';')
 		if semicolon > 0 {
 			raw = raw[:semicolon]
 		}
-		counter.ContentTypes[raw] += 1
+		return raw
+	} else {
+		return "none"
+	}
+}
+
+// Add a log entry to an instance of statistics
+func addToStats(entry *LogEntry, stats *Statistics) {
+
+	host := stripPortSuffix(entry.Request.Host)
+	hour := unixToHour(entry.Stamp)
+	ip := stripPortSuffix(entry.Request.Address)
+	ua := getRawUserAgent(entry.Request.Headers.UserAgent)
+	visitor := Visitor{ip, ua}
+
+	counter := stats.Counters[host]
+	if counter == nil {
+		counter = newCounter()
+		stats.Counters[host] = counter
 	}
 
-	// Analyze encryption methods
-	cipher := tls.CipherSuiteName(data.Request.Encryption.Cipher)
-	counter.Ciphers[cipher] += 1
-	switch data.Request.Encryption.Version {
+	total := &counter.Total
+	if total.Observed == nil {
+		total.Observed = map[Visitor]bool{}
+		counter.Total.Observed = total.Observed
+	}
+
+	hourly := counter.Hourly[hour]
+	if hourly == nil {
+		hourly = newHits()
+		counter.Hourly[hour] = hourly
+	}
+
+	total.Requests += 1
+	total.SentBytes += entry.Size
+	total.Latency += entry.Duration
+	if !total.Observed[visitor] {
+		uaInfo := user_agent.New(ua)
+		if uaInfo.Mobile() {
+			counter.Mobile.True += 1
+		} else {
+			counter.Mobile.False += 1
+		}
+		browser, _ := uaInfo.Browser()
+		counter.Browsers[browser] += 1
+		counter.Systems[uaInfo.OS()] += 1
+		prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
+		counter.Languages[prefLanguage] += 1
+		supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
+		for i := range supEncodings {
+			counter.EncodingSupport[supEncodings[i]] += 1
+		}
+		total.Visitors += 1
+		total.Observed[visitor] = true
+	}
+
+	hourly.Requests += 1
+	hourly.SentBytes += entry.Size
+	hourly.Latency += entry.Duration
+	if !hourly.Observed[visitor] {
+		hourly.Visitors += 1
+		hourly.Observed[visitor] = true
+	}
+
+	contentType := getContentType(entry.Response.ContentType)
+	counter.ContentTypes[contentType] += 1
+
+	cipher := tls.CipherSuiteName(entry.Request.Encryption.Cipher)
+	counter.CryptoCiphers[cipher] += 1
+	switch entry.Request.Encryption.Version {
 	case 0x0300:
-		counter.Tls["SSL v3.0"] += 1
+		counter.CryptoProtocols["SSL v3.0"] += 1
 	case 0x0301:
-		counter.Tls["TLS v1.0"] += 1
+		counter.CryptoProtocols["TLS v1.0"] += 1
 	case 0x0302:
-		counter.Tls["TLS v1.1"] += 1
+		counter.CryptoProtocols["TLS v1.1"] += 1
 	case 0x0303:
-		counter.Tls["TLS v1.2"] += 1
+		counter.CryptoProtocols["TLS v1.2"] += 1
 	case 0x0304:
-		counter.Tls["TLS v1.3"] += 1
+		counter.CryptoProtocols["TLS v1.3"] += 1
 	default:
-		counter.Tls["Unknown"] += 1
+		counter.CryptoProtocols["Unknown"] += 1
+	}
+
+	statusCounter := counter.Locations[entry.Request.Location]
+	if statusCounter == nil {
+		statusCounter = &StatusCounter{}
+		counter.Locations[entry.Request.Location] = statusCounter
+	}
+	switch int(entry.Status / 100) {
+	case 0:
+		statusCounter.Cancelled += 1
+	case 1:
+		statusCounter.Informational += 1
+	case 2:
+		statusCounter.Successful += 1
+	case 3:
+		statusCounter.Redirection += 1
+	case 4:
+		statusCounter.ClientError += 1
+	case 5:
+		statusCounter.ServerError += 1
 	}
 
 	// Miscellaneous simple counters
-	counter.Methods[data.Request.Method] += 1
-	counter.Locations[data.Request.Location] += 1
-	counter.Protocols[data.Request.Protocol] += 1
-	counter.Statuses[data.Status] += 1
-	counter.Duration += data.Duration
-	counter.Bytes += data.Size
+	counter.Methods[entry.Request.Method] += 1
+	counter.Protocols[entry.Request.Protocol] += 1
 
 	// Timestamp logic
-	if stats.FirstStamp > data.Stamp || stats.FirstStamp == 0 {
-		stats.FirstStamp = data.Stamp
+	if stats.FirstStamp > entry.Stamp || stats.FirstStamp == 0 {
+		stats.FirstStamp = entry.Stamp
 	}
-	if stats.LastStamp < data.Stamp || stats.LastStamp == 0 {
-		stats.LastStamp = data.Stamp
+	if stats.LastStamp < entry.Stamp || stats.LastStamp == 0 {
+		stats.LastStamp = entry.Stamp
 	}
 }

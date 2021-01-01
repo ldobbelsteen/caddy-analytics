@@ -15,7 +15,7 @@ import (
 )
 
 // Format of a line in Caddy's access logs
-type LogLine struct {
+type LogEntry struct {
 	Stamp    float64 `json:"ts"`
 	Status   int     `json:"status"`
 	Duration float64 `json:"duration"`
@@ -34,7 +34,6 @@ type LogLine struct {
 			Languages []string `json:"Accept-Language"`
 			Encodings []string `json:"Accept-Encoding"`
 			UserAgent []string `json:"User-Agent"`
-			Referer   []string `json:"Referer"`
 		} `json:"headers"`
 	} `json:"request"`
 	Response struct {
@@ -45,8 +44,8 @@ type LogLine struct {
 func parseLogs(logDir string, geoFile string) (Statistics, error) {
 
 	stats := Statistics{
-		Counters: map[string]*Counter{},
-		LogDir:   logDir,
+		Counters:     map[string]*Counter{},
+		LogDirectory: logDir,
 	}
 
 	info, err := os.Stat(logDir)
@@ -78,7 +77,7 @@ func parseLogs(logDir string, geoFile string) (Statistics, error) {
 			log.Print("Log file stats could not be retrieved: ", err)
 			return stats, err
 		}
-		stats.LogSize += info.Size()
+		stats.LogSizeBytes += info.Size()
 
 		scanner := bufio.NewScanner(file)
 		if filepath.Ext(logFile) == ".gz" {
@@ -91,13 +90,13 @@ func parseLogs(logDir string, geoFile string) (Statistics, error) {
 		}
 
 		for scanner.Scan() {
-			var line LogLine
+			var line LogEntry
 			err := json.Unmarshal(scanner.Bytes(), &line)
 			if err != nil {
 				log.Print("Log line could not be unmarshalled: ", err)
 				return stats, err
 			}
-			addToStats(&stats, &line)
+			addToStats(&line, &stats)
 		}
 
 		file.Close()
@@ -111,8 +110,7 @@ func parseLogs(logDir string, geoFile string) (Statistics, error) {
 	defer geo.Close()
 
 	for _, counter := range stats.Counters {
-		counter.Unique = len(counter.Visitors)
-		for visitor, count := range counter.Visitors {
+		for visitor := range counter.Total.Observed {
 			var info struct {
 				Country struct {
 					Names map[string]string `maxminddb:"names"`
@@ -125,7 +123,7 @@ func parseLogs(logDir string, geoFile string) (Statistics, error) {
 				return stats, err
 			}
 			country := info.Country.Names["en"]
-			counter.Countries[country] += count
+			counter.Countries[country] += 1
 		}
 	}
 
