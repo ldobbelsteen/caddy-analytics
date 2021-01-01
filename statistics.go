@@ -32,7 +32,7 @@ type Counter struct {
 	Devices struct {
 		Mobile int `json:"mobile"`
 		Bot    int `json:"bot"`
-		Other  int `json:"desktop"`
+		Other  int `json:"other"`
 	} `json:"visitorDevice"`
 	Browsers        map[string]int            `json:"visitorBrowsers"`
 	Systems         map[string]int            `json:"visitorSystems"`
@@ -160,6 +160,9 @@ func getPreferredLanguage(slc []string) string {
 		dash := strings.IndexRune(raw, '-')
 		if dash > 0 {
 			raw = raw[:dash]
+		}
+		if raw == "*" {
+			raw = "none"
 		}
 		return raw
 	} else {
