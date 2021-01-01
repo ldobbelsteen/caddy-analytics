@@ -14,7 +14,6 @@ import (
 	"github.com/oschwald/maxminddb-golang"
 )
 
-// Format of a line in Caddy's access logs
 type LogEntry struct {
 	Stamp    float64 `json:"ts"`
 	Status   int     `json:"status"`
@@ -41,74 +40,88 @@ type LogEntry struct {
 	} `json:"resp_headers"`
 }
 
-func parseLogs(logDir string, geoFile string) (Statistics, error) {
+// Parse all logs in the log directory and return the statistics
+func parseLogs(logDir string, geoFile string) (*Statistics, error) {
 
-	stats := Statistics{
-		Counters:     map[string]*Counter{},
-		LogDirectory: logDir,
-	}
+	// Create statistics instance
+	stats := newStatistics()
+	stats.LogDirectory = logDir
 
+	// Validate log directory
 	info, err := os.Stat(logDir)
 	if err != nil {
 		log.Print("Log directory does not exist: ", err)
-		return stats, err
+		return nil, err
 	}
 	if !info.Mode().IsDir() {
 		err = errors.New("stat " + logDir + ": not a directory")
 		log.Print("Log directory is not a directory: ", err)
-		return stats, err
+		return nil, err
 	}
 
+	// Find log files with log extension and optionally more extensions
 	logFiles, _ := filepath.Glob(filepath.Join(logDir, "*.log*"))
 
+	// Start the timer
 	startTime := time.Now()
 
+	// Read all files one by one
 	for _, logFile := range logFiles {
 
+		// Open the log file
 		file, err := os.Open(logFile)
 		if err != nil {
 			log.Print("Log file could not be opened: ", err)
-			return stats, err
+			return nil, err
 		}
 		defer file.Close()
 
+		// Get log file size in bytes
 		info, err := file.Stat()
 		if err != nil {
 			log.Print("Log file stats could not be retrieved: ", err)
-			return stats, err
+			return nil, err
 		}
 		stats.LogSizeBytes += info.Size()
 
+		// Create line scanner and decompress if the file is gzipped
 		scanner := bufio.NewScanner(file)
 		if filepath.Ext(logFile) == ".gz" {
 			decompressed, err := gzip.NewReader(file)
 			if err != nil {
 				log.Print("Log file could not be decompressed: ", err)
-				return stats, err
+				return nil, err
 			}
 			scanner = bufio.NewScanner(decompressed)
 		}
 
+		// Scan line by line and add them to the statistics instance
 		for scanner.Scan() {
 			var line LogEntry
 			err := json.Unmarshal(scanner.Bytes(), &line)
 			if err != nil {
 				log.Print("Log line could not be unmarshalled: ", err)
-				return stats, err
+				return nil, err
 			}
-			addToStats(&line, &stats)
+			err = addToStats(&line, stats)
+			if err != nil {
+				log.Print("Log line could not be parsed: ", err)
+				return nil, err
+			}
 		}
 
 		file.Close()
 	}
 
+	// Open geolocation database
 	geo, err := maxminddb.Open(geoFile)
 	if err != nil {
 		log.Print("Geolocation database could not be opened: ", err)
-		return stats, err
+		return nil, err
 	}
 	defer geo.Close()
 
+	// Get countries of all visitors observed
 	for _, counter := range stats.Counters {
 		for visitor := range counter.Total.Observed {
 			var info struct {
@@ -120,14 +133,17 @@ func parseLogs(logDir string, geoFile string) (Statistics, error) {
 			err := geo.Lookup(ip, &info)
 			if err != nil {
 				log.Print("IP country lookup failed: ", err)
-				return stats, err
+				return nil, err
 			}
 			country := info.Country.Names["en"]
+			if country == "" {
+				country = "Unknown"
+			}
 			counter.Countries[country] += 1
 		}
 	}
 
-	geo.Close()
+	// Save parse duration and return result
 	stats.ParseDuration = time.Since(startTime).Seconds()
 	return stats, nil
 }

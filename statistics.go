@@ -20,6 +20,12 @@ type Statistics struct {
 	Counters      map[string]*Counter `json:"counters"`
 }
 
+func newStatistics() *Statistics {
+	return &Statistics{
+		Counters: map[string]*Counter{},
+	}
+}
+
 type Counter struct {
 	Total  Hits           `json:"total"`
 	Hourly map[Hour]*Hits `json:"hourly"`
@@ -189,7 +195,7 @@ func getContentType(slc []string) string {
 }
 
 // Add a log entry to an instance of statistics
-func addToStats(entry *LogEntry, stats *Statistics) {
+func addToStats(entry *LogEntry, stats *Statistics) error {
 
 	host := stripPortSuffix(entry.Request.Host)
 	hour := unixToHour(entry.Stamp)
@@ -297,4 +303,6 @@ func addToStats(entry *LogEntry, stats *Statistics) {
 	if stats.LastStamp < entry.Stamp || stats.LastStamp == 0 {
 		stats.LastStamp = entry.Stamp
 	}
+
+	return nil
 }
