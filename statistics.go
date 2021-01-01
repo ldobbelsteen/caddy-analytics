@@ -27,12 +27,13 @@ func newStatistics() *Statistics {
 }
 
 type Counter struct {
-	Total  Hits           `json:"total"`
-	Hourly map[Hour]*Hits `json:"hourly"`
-	Mobile struct {
-		True  int `json:"true"`
-		False int `json:"false"`
-	} `json:"visitorMobile"`
+	Total   Hits           `json:"total"`
+	Hourly  map[Hour]*Hits `json:"hourly"`
+	Devices struct {
+		Mobile int `json:"mobile"`
+		Bot    int `json:"bot"`
+		Other  int `json:"desktop"`
+	} `json:"visitorDevice"`
 	Browsers        map[string]int            `json:"visitorBrowsers"`
 	Systems         map[string]int            `json:"visitorSystems"`
 	Languages       map[string]int            `json:"visitorPrefLanguages"`
@@ -40,14 +41,14 @@ type Counter struct {
 	EncodingSupport map[string]int            `json:"visitorEncodingSupport"`
 	Protocols       map[string]int            `json:"requestProtocols"`
 	Methods         map[string]int            `json:"requestMethods"`
-	CryptoProtocols map[string]int            `json:"requestCryptoProtocols"`
-	CryptoCiphers   map[string]int            `json:"requestCryptoCiphers"`
+	Crypto          map[string]map[string]int `json:"requestCrypto"`
 	ContentTypes    map[string]int            `json:"responseContentTypes"`
 	Locations       map[string]*StatusCounter `json:"requestLocationResponses"`
 }
 
 func newCounter() *Counter {
 	return &Counter{
+		Total:           Hits{Observed: map[Visitor]bool{}},
 		Hourly:          map[Hour]*Hits{},
 		Browsers:        map[string]int{},
 		Systems:         map[string]int{},
@@ -56,10 +57,23 @@ func newCounter() *Counter {
 		EncodingSupport: map[string]int{},
 		Protocols:       map[string]int{},
 		Methods:         map[string]int{},
-		CryptoProtocols: map[string]int{},
-		CryptoCiphers:   map[string]int{},
+		Crypto:          map[string]map[string]int{},
 		ContentTypes:    map[string]int{},
 		Locations:       map[string]*StatusCounter{},
+	}
+}
+
+type Hits struct {
+	Requests  int              `json:"requests"`
+	Latency   float64          `json:"totalLatency"`
+	SentBytes int              `json:"sentBytes"`
+	Visitors  int              `json:"visitors"`
+	Observed  map[Visitor]bool `json:"-"`
+}
+
+func newHits() *Hits {
+	return &Hits{
+		Observed: map[Visitor]bool{},
 	}
 }
 
@@ -77,20 +91,6 @@ func (hour Hour) MarshalText() ([]byte, error) {
 	hourOfDay := strconv.Itoa(hour.HourOfDay)
 	str := year + "/" + monthOfYear + "/" + dayOfMonth + ":" + hourOfDay
 	return []byte(str), nil
-}
-
-type Hits struct {
-	Requests  int              `json:"requests"`
-	Latency   float64          `json:"totalLatency"`
-	SentBytes int              `json:"sentBytes"`
-	Visitors  int              `json:"visitors"`
-	Observed  map[Visitor]bool `json:"-"`
-}
-
-func newHits() *Hits {
-	return &Hits{
-		Observed: map[Visitor]bool{},
-	}
 }
 
 type Visitor struct {
@@ -194,56 +194,86 @@ func getContentType(slc []string) string {
 	}
 }
 
+// Convert crypto/tls protocol version to human-readable string
+func getProtocolFromVersion(version int) string {
+	switch version {
+	case 0x0300:
+		return "SSL v3.0"
+	case 0x0301:
+		return "TLS v1.0"
+	case 0x0302:
+		return "TLS v1.1"
+	case 0x0303:
+		return "TLS v1.2"
+	case 0x0304:
+		return "TLS v1.3"
+	default:
+		return "Unknown"
+	}
+}
+
 // Add a log entry to an instance of statistics
 func addToStats(entry *LogEntry, stats *Statistics) error {
 
+	// Get counter corresponding to host
 	host := stripPortSuffix(entry.Request.Host)
-	hour := unixToHour(entry.Stamp)
-	ip := stripPortSuffix(entry.Request.Address)
-	ua := getRawUserAgent(entry.Request.Headers.UserAgent)
-	visitor := Visitor{ip, ua}
-
 	counter := stats.Counters[host]
 	if counter == nil {
 		counter = newCounter()
 		stats.Counters[host] = counter
 	}
 
-	total := &counter.Total
-	if total.Observed == nil {
-		total.Observed = map[Visitor]bool{}
-		counter.Total.Observed = total.Observed
+	// Add general stats
+	counter.Total.Requests += 1
+	counter.Total.SentBytes += entry.Size
+	counter.Total.Latency += entry.Duration
+
+	// Check if the visitor has not been seen yet
+	ip := stripPortSuffix(entry.Request.Address)
+	ua := getRawUserAgent(entry.Request.Headers.UserAgent)
+	visitor := Visitor{ip, ua}
+	if !counter.Total.Observed[visitor] {
+		uaInfo := user_agent.New(ua)
+		if uaInfo.Bot() {
+			counter.Devices.Bot += 1
+		} else if uaInfo.Mobile() {
+			counter.Devices.Mobile += 1
+		} else {
+			counter.Devices.Other += 1
+		}
+		browser, _ := uaInfo.Browser()
+		if browser == "" {
+			browser = "Unknown"
+		}
+		counter.Browsers[browser] += 1
+
+		os := uaInfo.OS()
+		if os == "" {
+			os = "Unknown"
+		}
+		counter.Systems[os] += 1
+
+		prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
+		counter.Languages[prefLanguage] += 1
+
+		supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
+		for _, enc := range supEncodings {
+			counter.EncodingSupport[enc] += 1
+		}
+
+		counter.Total.Visitors += 1
+		counter.Total.Observed[visitor] = true
 	}
 
+	// Get stats counter corresponding with the timestamp
+	hour := unixToHour(entry.Stamp)
 	hourly := counter.Hourly[hour]
 	if hourly == nil {
 		hourly = newHits()
 		counter.Hourly[hour] = hourly
 	}
 
-	total.Requests += 1
-	total.SentBytes += entry.Size
-	total.Latency += entry.Duration
-	if !total.Observed[visitor] {
-		uaInfo := user_agent.New(ua)
-		if uaInfo.Mobile() {
-			counter.Mobile.True += 1
-		} else {
-			counter.Mobile.False += 1
-		}
-		browser, _ := uaInfo.Browser()
-		counter.Browsers[browser] += 1
-		counter.Systems[uaInfo.OS()] += 1
-		prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
-		counter.Languages[prefLanguage] += 1
-		supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
-		for i := range supEncodings {
-			counter.EncodingSupport[supEncodings[i]] += 1
-		}
-		total.Visitors += 1
-		total.Observed[visitor] = true
-	}
-
+	// Add general stats to the hourly counter
 	hourly.Requests += 1
 	hourly.SentBytes += entry.Size
 	hourly.Latency += entry.Duration
@@ -252,26 +282,21 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 		hourly.Observed[visitor] = true
 	}
 
+	// Add crypto protocol and cipher stats
+	cipher := tls.CipherSuiteName(entry.Request.Encryption.Cipher)
+	protocol := getProtocolFromVersion(int(entry.Request.Encryption.Version))
+	cipherCounter := counter.Crypto[protocol]
+	if cipherCounter == nil {
+		cipherCounter = map[string]int{}
+		counter.Crypto[protocol] = cipherCounter
+	}
+	cipherCounter[cipher] += 1
+
+	// Add content type stats
 	contentType := getContentType(entry.Response.ContentType)
 	counter.ContentTypes[contentType] += 1
 
-	cipher := tls.CipherSuiteName(entry.Request.Encryption.Cipher)
-	counter.CryptoCiphers[cipher] += 1
-	switch entry.Request.Encryption.Version {
-	case 0x0300:
-		counter.CryptoProtocols["SSL v3.0"] += 1
-	case 0x0301:
-		counter.CryptoProtocols["TLS v1.0"] += 1
-	case 0x0302:
-		counter.CryptoProtocols["TLS v1.1"] += 1
-	case 0x0303:
-		counter.CryptoProtocols["TLS v1.2"] += 1
-	case 0x0304:
-		counter.CryptoProtocols["TLS v1.3"] += 1
-	default:
-		counter.CryptoProtocols["Unknown"] += 1
-	}
-
+	// Add location stats with the status code
 	statusCounter := counter.Locations[entry.Request.Location]
 	if statusCounter == nil {
 		statusCounter = &StatusCounter{}
@@ -292,11 +317,13 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 		statusCounter.ServerError += 1
 	}
 
-	// Miscellaneous simple counters
+	// Add HTTP method stats
 	counter.Methods[entry.Request.Method] += 1
+
+	// Add HTTP protocol stats
 	counter.Protocols[entry.Request.Protocol] += 1
 
-	// Timestamp logic
+	// Change timestamp if current one lies outside the current boundaries
 	if stats.FirstStamp > entry.Stamp || stats.FirstStamp == 0 {
 		stats.FirstStamp = entry.Stamp
 	}
