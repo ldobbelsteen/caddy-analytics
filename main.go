@@ -30,22 +30,23 @@ func main() {
 		parseWait.Wait()
 		if jsonCache == nil {
 			parseWait.Add(1)
-			func() {
-				defer parseWait.Done()
-				stats, err := parseLogs(*logDirectory, *geoDatabase)
-				if err != nil {
-					http.Error(writer, "failed to parse logs", http.StatusInternalServerError)
-					return
-				}
-				jsonCache, err = json.MarshalIndent(stats, "", "  ")
-				if err != nil {
-					jsonCache = nil
-					http.Error(writer, "failed to convert json", http.StatusInternalServerError)
-					return
-				} else {
-					time.AfterFunc(10*time.Second, func() { jsonCache = nil })
-				}
-			}()
+			stats, err := parseLogs(*logDirectory, *geoDatabase)
+			if err != nil {
+				log.Print("Failed to parse logs: ", err)
+				http.Error(writer, "failed to parse logs", http.StatusInternalServerError)
+				parseWait.Done()
+				return
+			}
+			jsonCache, err = json.MarshalIndent(stats, "", "  ")
+			if err != nil {
+				jsonCache = nil
+				log.Print("Failed to convert to JSON: ", err)
+				http.Error(writer, "failed to convert json", http.StatusInternalServerError)
+				parseWait.Done()
+				return
+			}
+			time.AfterFunc(10*time.Second, func() { jsonCache = nil })
+			parseWait.Done()
 		}
 		writer.Header().Set("Content-Type", "application/json")
 		writer.Write(jsonCache)
