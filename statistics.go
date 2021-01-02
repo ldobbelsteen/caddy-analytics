@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mssola/user_agent"
+	ua "github.com/mileusna/useragent"
 )
 
 type Statistics struct {
@@ -30,9 +30,11 @@ type Counter struct {
 	Total   Hits           `json:"total"`
 	Hourly  map[Hour]*Hits `json:"hourly"`
 	Devices struct {
-		Mobile int `json:"mobile"`
-		Bot    int `json:"bot"`
-		Other  int `json:"other"`
+		Mobile  int `json:"mobile"`
+		Bot     int `json:"bot"`
+		Other   int `json:"other"`
+		Tablet  int `json:"tablet"`
+		Desktop int `json:"desktop"`
 	} `json:"visitorDevice"`
 	Browsers        map[string]int            `json:"visitorBrowsers"`
 	Systems         map[string]int            `json:"visitorSystems"`
@@ -233,24 +235,28 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 
 	// Check if the visitor has not been seen yet
 	ip := stripPortSuffix(entry.Request.Address)
-	ua := getRawUserAgent(entry.Request.Headers.UserAgent)
-	visitor := Visitor{ip, ua}
+	userAgent := getRawUserAgent(entry.Request.Headers.UserAgent)
+	visitor := Visitor{ip, userAgent}
 	if !counter.Total.Observed[visitor] {
-		uaInfo := user_agent.New(ua)
-		if uaInfo.Bot() {
+		uaInfo := ua.Parse(userAgent)
+		if uaInfo.Bot {
 			counter.Devices.Bot += 1
-		} else if uaInfo.Mobile() {
+		} else if uaInfo.Tablet {
+			counter.Devices.Tablet += 1
+		} else if uaInfo.Mobile {
 			counter.Devices.Mobile += 1
+		} else if uaInfo.Desktop {
+			counter.Devices.Desktop += 1
 		} else {
 			counter.Devices.Other += 1
 		}
-		browser, _ := uaInfo.Browser()
+		browser := uaInfo.Name
 		if browser == "" {
 			browser = "Unknown"
 		}
 		counter.Browsers[browser] += 1
 
-		os := uaInfo.OS()
+		os := uaInfo.OS
 		if os == "" {
 			os = "Unknown"
 		}
