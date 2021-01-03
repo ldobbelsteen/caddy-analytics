@@ -176,10 +176,27 @@ func getPreferredLanguage(slc []string) string {
 func getSupportedEncodings(slc []string) []string {
 	if len(slc) > 0 {
 		slc := strings.Split(slc[0], ",")
-		for i := range slc {
-			slc[i] = strings.TrimSpace(slc[i])
+		var clean []string
+		for _, enc := range slc {
+			enc = strings.TrimSpace(enc)
+			switch enc {
+			case "deflate":
+				clean = append(clean, "Deflate")
+			case "br":
+				clean = append(clean, "Brotli")
+			case "gzip":
+				clean = append(clean, "Gzip")
+			case "snappy":
+				clean = append(clean, "Snappy")
+			case "sdch":
+				clean = append(clean, "SDCH")
+			default:
+				if enc != "identity" && enc != "utf-8" {
+					clean = append(clean, enc)
+				}
+			}
 		}
-		return slc
+		return clean
 	} else {
 		return []string{}
 	}
