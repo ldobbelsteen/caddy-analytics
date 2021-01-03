@@ -9,6 +9,8 @@ import (
 	"time"
 
 	ua "github.com/mileusna/useragent"
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 )
 
 type Statistics struct {
@@ -38,7 +40,7 @@ type Counter struct {
 	} `json:"visitorDevice"`
 	Browsers        map[string]int            `json:"visitorBrowsers"`
 	Systems         map[string]int            `json:"visitorSystems"`
-	Languages       map[string]int            `json:"visitorPrefLanguages"`
+	Languages       map[string]int            `json:"visitorPreferredLanguages"`
 	Countries       map[string]int            `json:"visitorCountries"`
 	EncodingSupport map[string]int            `json:"visitorEncodingSupport"`
 	Protocols       map[string]int            `json:"requestProtocols"`
@@ -151,7 +153,7 @@ func unixToHour(unix float64) Hour {
 	}
 }
 
-// Get preferred language from an Accept-Language header
+// Get preferred language from a slice of Accept-Language headers
 func getPreferredLanguage(slc []string) string {
 	if len(slc) > 0 {
 		raw := slc[0]
@@ -163,12 +165,14 @@ func getPreferredLanguage(slc []string) string {
 		if dash > 0 {
 			raw = raw[:dash]
 		}
-		if raw == "*" {
-			raw = "none"
+		tag, err := language.Parse(raw)
+		if err != nil {
+			return "Unknown"
 		}
-		return raw
+		lang := display.English.Tags().Name(tag)
+		return lang
 	} else {
-		return "none"
+		return "None"
 	}
 }
 
