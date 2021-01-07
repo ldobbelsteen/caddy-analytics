@@ -1,0 +1,37 @@
+$primary-background-color: rgb(40, 40, 40)
+$secondary-background-color: rgb(60, 60, 60)
+$tertiary-background-color: rgb(80, 80, 80)
+$primary-text-color: white
+$default-spacing: 0.5em
+
+body
+	font-family: "Open Sans"
+	background-color: $primary-background-color
+	color: $primary-text-color
+
+#header
+	display: flex
+	flex-wrap: wrap
+	text-align: center
+
+	div
+		flex-grow: 1
+		background-color: $tertiary-background-color
+		padding: $default-spacing
+		margin: $default-spacing
+
+#menu
+	display: flex
+	overflow-x: auto
+	margin: $default-spacing
+	padding: $default-spacing
+	background-color: $tertiary-background-color
+	text-align: center
+
+	div
+		margin: auto
+		font-weight: 700
+		padding: $default-spacing 2*$default-spacing
+		&:hover
+			background-color: $secondary-background-color
+			cursor: pointer

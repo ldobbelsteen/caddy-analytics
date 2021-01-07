@@ -1,0 +1,21 @@
+export function bytesToHumanReadable(bytes) {
+	const base = 1024
+	if (bytes <= 0) {
+		return "0 B"
+	} else {
+		var order = Math.floor(Math.log(bytes) / Math.log(base))
+		const suffixes = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+		if (order > suffixes.length - 1) {
+			order = suffixes.length - 1
+		}
+		const value = (bytes / Math.pow(base, order)).toFixed(2)
+		return value + " " + suffixes[order]
+	}
+}
+
+export function unixToDate(unix) {
+	const milliseconds = unix * 1000
+	const date = new Date(milliseconds)
+	const string = date.toLocaleDateString()
+	return string
+}
