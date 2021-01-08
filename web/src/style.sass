@@ -1,12 +1,12 @@
-$primary-background-color: rgb(40, 40, 40)
-$secondary-background-color: rgb(60, 60, 60)
-$tertiary-background-color: rgb(80, 80, 80)
-$primary-text-color: white
+$primary-text-color: #bdd6f7
+$primary-background-color: #060e17
+$secondary-background-color: #051628
 $default-spacing: 0.5em
 
 body
+	font-size: 14px
 	font-family: "Open Sans"
-	background-color: $primary-background-color
+	background: $primary-background-color
 	color: $primary-text-color
 
 #header
@@ -16,22 +16,41 @@ body
 
 	div
 		flex-grow: 1
-		background-color: $tertiary-background-color
+		background: $secondary-background-color
 		padding: $default-spacing
 		margin: $default-spacing
+	
+	p
+		margin: $default-spacing 0
+	
+	h3
+		margin: $default-spacing 0
+	
+	h1
+		margin: $default-spacing 0
 
 #menu
 	display: flex
 	overflow-x: auto
 	margin: $default-spacing
 	padding: $default-spacing
-	background-color: $tertiary-background-color
-	text-align: center
-
-	div
+	background: $secondary-background-color
+	.button
 		margin: auto
 		font-weight: 700
-		padding: $default-spacing 2*$default-spacing
-		&:hover
-			background-color: $secondary-background-color
-			cursor: pointer
+
+#host
+	background: $secondary-background-color
+	margin: 2*$default-spacing $default-spacing
+	padding: $default-spacing
+
+.button
+	user-select: none
+	text-align: center
+	background: $secondary-background-color
+	padding: $default-spacing 2*$default-spacing
+	&:hover
+		background: darken($secondary-background-color, 5%)
+		cursor: pointer
+	&:active
+		background: darken($secondary-background-color, 40%)

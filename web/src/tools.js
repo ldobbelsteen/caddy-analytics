@@ -1,3 +1,4 @@
+// Convert a number of bytes to a more human-readable format
 export function bytesToHumanReadable(bytes) {
 	const base = 1024
 	if (bytes <= 0) {
@@ -13,6 +14,7 @@ export function bytesToHumanReadable(bytes) {
 	}
 }
 
+// Convert a unix timestamp to locale date string
 export function unixToDate(unix) {
 	const milliseconds = unix * 1000
 	const date = new Date(milliseconds)
