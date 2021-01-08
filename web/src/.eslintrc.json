@@ -1,11 +1,11 @@
 {
 	"extends": "eslint:recommended",
 	"env": {
-		"browser": true,
-		"es6": true
+		"browser": true
 	},
 	"parserOptions": {
-		"sourceType": "module"
+		"sourceType": "module",
+		"ecmaVersion": 2017
 	},
 	"rules": {
 		"indent": ["warn", "tab"],
