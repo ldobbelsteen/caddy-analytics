@@ -6,10 +6,11 @@ $default-spacing: 0.5em
 body
 	font-size: 14px
 	font-family: "Open Sans"
+	font-weight: normal
 	background: $primary-background-color
 	color: $primary-text-color
 
-#header
+header
 	display: flex
 	flex-wrap: wrap
 	text-align: center
@@ -19,17 +20,15 @@ body
 		background: $secondary-background-color
 		padding: $default-spacing
 		margin: $default-spacing
-	
-	p
-		margin: $default-spacing 0
-	
-	h3
-		margin: $default-spacing 0
-	
-	h1
-		margin: $default-spacing 0
+		a
+			color: $primary-text-color
+		*
+			margin: $default-spacing 0
+		:first-child
+			font-size: 1.2em
+			font-weight: bold
 
-#menu
+nav
 	display: flex
 	overflow-x: auto
 	margin: $default-spacing
@@ -39,7 +38,7 @@ body
 		margin: auto
 		font-weight: 700
 
-#host
+main
 	background: $secondary-background-color
 	margin: 2*$default-spacing $default-spacing
 	padding: $default-spacing

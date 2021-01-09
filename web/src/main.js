@@ -12,14 +12,14 @@ async function updateData() {
 	const json = await raw.json()
 
 	// Update general log statistics
-	const header = document.querySelector("#header")
+	const header = document.querySelector("header")
 	header.querySelector("#range").textContent = tools.unixToDate(json.firstStampUnix) + " to " + tools.unixToDate(json.lastStampUnix)
-	header.querySelector("#duration").textContent = json.parseDurationSeconds + " seconds"
+	header.querySelector("#duration").textContent = json.parseDurationSeconds.toFixed(2) + " seconds"
 	header.querySelector("#size").textContent = tools.bytesToHumanReadable(json.logSizeBytes)
 	header.querySelector("#directory").textContent = json.logDirectory
 
 	// Sort all virtual hosts by total request count
-	const menu = document.querySelector("#menu")
+	const menu = document.querySelector("nav")
 	const counters = json["counters"]
 	const sortedHosts = Object.keys(counters).sort((a, b) => {
 		const aVal = counters[a]["total"]["requests"]

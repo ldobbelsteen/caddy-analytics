@@ -3,32 +3,33 @@
 	<head>
 		<title>Caddy Analytics</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<meta name="description" content="Caddy log analyzer">
+		<meta name="description" content="Caddy log analytics">
 	</head>
 	<body>
-		<div id="header">
+		<header>
 			<div>
-				<h1>Caddy Analytics</h1>
+				<p>CADDY ANALYTICS</p>
+				<a href="https://github.com/ldobbelsteen/caddy-analytics">source code</a>
 			</div>
 			<div>
-				<h3>LOG TIME RANGE</h3>
+				<p>TIME RANGE</p>
 				<p id='range'></p>
 			</div>
 			<div>
-				<h3>LOG PARSE DURATION</h3>
+				<p>PARSE DURATION</p>
 				<p id='duration'></p>
 			</div>
 			<div>
-				<h3>LOG SIZE</h3>
+				<p>LOG SIZE</p>
 				<p id='size'></p>
 			</div>
 			<div>
-				<h3>LOG DIRECTORY</h3>
+				<p>LOG DIRECTORY</p>
 				<p id='directory'></p>
 			</div>
-		</div>
-		<div id="menu"></div>
-		<div id="host">
+		</header>
+		<nav></nav>
+		<main>
 			<div id="general-stats"></div>
 			<div id="general-stats-hourly"></div>
 			<div id="location-codes"></div>
@@ -43,6 +44,6 @@
 			<div id="http-versions"></div>
 			<div id="http-methods"></div>
 			<pre id="json"></pre>
-		</div>
+		</main>
 	</body>
 </html>
