@@ -1,6 +1,8 @@
 import "@fontsource/open-sans"
 import "./style.sass"
 import * as tools from "./tools.js"
+import { Chart, LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip } from "chart.js"
+Chart.register(LineElement, PointElement, LineController, CategoryScale, LinearScale, Tooltip)
 
 async function updateData() {
 
@@ -30,15 +32,40 @@ async function updateData() {
 	// Populate host selection menu with the hosts
 	sortedHosts.forEach(host => {
 		const button = document.createElement("div")
-		button.classList.add("button")
 		button.textContent = host
 		button.onclick = () => {
 			const data = json["counters"][button.textContent]
-			const pre = document.querySelector("#json")
-			pre.textContent = JSON.stringify(data, undefined, 4)
+			renderHourly(data["hourly"], "general-stats-hourly")
 		}
 		menu.appendChild(button)
 	})
 }
 
 updateData()
+
+function renderHourly(rawData, canvasId) {
+	const canvas = document.getElementById(canvasId)
+	const lastHour = Object.keys(rawData).reduce((lastHour, hour) => parseInt(hour) > parseInt(lastHour) ? parseInt(hour) : parseInt(lastHour))
+	const firstHour = lastHour - (6 * 24 * 60 * 60)
+
+	const data = []
+	let currentHour = firstHour
+	do {
+		data.push({
+			x: (new Date(currentHour * 1000)).toLocaleString(),
+			y: (rawData[currentHour] ?? 0).requests ?? 0
+		})
+		currentHour += 3600
+	} while (currentHour <= lastHour)
+
+	new Chart(canvas, {
+		type: "line",
+		data: {
+			datasets: [{
+				backgroundColor: "rgb(255, 99, 132)",
+				borderColor: "rgb(255, 99, 132)",
+				data: data
+			}]
+		}
+	})
+}

@@ -15,10 +15,28 @@ module.exports = {
 	],
 	output: {
 		path: path.resolve(__dirname, "dist"),
-		filename: "[contenthash].js",
+		filename: "[name].[contenthash].js",
 	},
 	module: {
 		rules: [
+			{
+				test: /\.js$/,
+				exclude: /node_modules/,
+				use: {
+					loader: "babel-loader",
+					options: {
+						presets: [
+							[
+								"@babel/preset-env", {
+									"targets": "> 0.25%, not dead",
+									"useBuiltIns": "usage",
+									"corejs": 3
+								}
+							]
+						]
+					}
+				}
+			},
 			{
 				test: /\.css$/i,
 				use: ["style-loader", "css-loader"]
@@ -28,7 +46,7 @@ module.exports = {
 				use: ["style-loader", "css-loader", "sass-loader"]
 			},
 			{
-				test: /\.(woff|woff2)$/i,
+				test: /\.(woff2|woff|eot|ttf|otf)$/i,
 				type: "asset/resource"
 			}
 		]
