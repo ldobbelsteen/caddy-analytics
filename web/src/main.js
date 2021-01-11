@@ -51,9 +51,11 @@ function renderHourly(rawData, canvasId) {
 	const data = []
 	let currentHour = firstHour
 	do {
+		const timeString = (new Date(currentHour * 1000)).toLocaleString()
+		const requestCount = rawData[currentHour] != undefined ? rawData[currentHour].requests : 0
 		data.push({
-			x: (new Date(currentHour * 1000)).toLocaleString(),
-			y: (rawData[currentHour] ?? 0).requests ?? 0
+			x: timeString,
+			y: requestCount
 		})
 		currentHour += 3600
 	} while (currentHour <= lastHour)
