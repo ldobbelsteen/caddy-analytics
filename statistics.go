@@ -2,35 +2,32 @@ package main
 
 import (
 	"crypto/tls"
-	"math"
 	"net"
-	"strconv"
 	"strings"
-	"time"
 
 	ua "github.com/mileusna/useragent"
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
 )
 
-type Statistics struct {
+type statistics struct {
 	LogDirectory  string              `json:"logDirectory"`
 	LogSizeBytes  int64               `json:"logSizeBytes"`
 	ParseDuration float64             `json:"parseDurationSeconds"`
-	FirstStamp    float64             `json:"firstStampUnix"`
-	LastStamp     float64             `json:"lastStampUnix"`
-	Counters      map[string]*Counter `json:"counters"`
+	FirstStamp    int64               `json:"firstStampUnix"`
+	LastStamp     int64               `json:"lastStampUnix"`
+	Counters      map[string]*counter `json:"counters"`
 }
 
-func newStatistics() *Statistics {
-	return &Statistics{
-		Counters: map[string]*Counter{},
+func newStatistics() *statistics {
+	return &statistics{
+		Counters: map[string]*counter{},
 	}
 }
 
-type Counter struct {
-	Total   Hits           `json:"total"`
-	Hourly  map[Hour]*Hits `json:"hourly"`
+type counter struct {
+	Total   hits            `json:"total"`
+	Hourly  map[int64]*hits `json:"hourly"`
 	Devices struct {
 		Mobile  int `json:"mobile"`
 		Bot     int `json:"bot"`
@@ -47,13 +44,13 @@ type Counter struct {
 	Methods         map[string]int            `json:"requestMethods"`
 	Crypto          map[string]map[string]int `json:"requestCrypto"`
 	ContentTypes    map[string]int            `json:"responseContentTypes"`
-	Locations       map[string]*StatusCounter `json:"requestLocationResponses"`
+	Locations       map[string]*statusCounter `json:"requestLocationResponses"`
 }
 
-func newCounter() *Counter {
-	return &Counter{
-		Total:           Hits{Observed: map[Visitor]bool{}},
-		Hourly:          map[Hour]*Hits{},
+func newCounter() *counter {
+	return &counter{
+		Total:           hits{Observed: map[visitor]bool{}},
+		Hourly:          map[int64]*hits{},
 		Browsers:        map[string]int{},
 		Systems:         map[string]int{},
 		Languages:       map[string]int{},
@@ -63,46 +60,30 @@ func newCounter() *Counter {
 		Methods:         map[string]int{},
 		Crypto:          map[string]map[string]int{},
 		ContentTypes:    map[string]int{},
-		Locations:       map[string]*StatusCounter{},
+		Locations:       map[string]*statusCounter{},
 	}
 }
 
-type Hits struct {
+type hits struct {
 	Requests  int              `json:"requests"`
 	Latency   float64          `json:"totalLatency"`
 	SentBytes int              `json:"sentBytes"`
 	Visitors  int              `json:"visitors"`
-	Observed  map[Visitor]bool `json:"-"`
+	Observed  map[visitor]bool `json:"-"`
 }
 
-func newHits() *Hits {
-	return &Hits{
-		Observed: map[Visitor]bool{},
+func newHits() *hits {
+	return &hits{
+		Observed: map[visitor]bool{},
 	}
 }
 
-type Hour struct {
-	Year        int
-	MonthOfYear int
-	DayOfMonth  int
-	HourOfDay   int
-}
-
-func (hour Hour) MarshalText() ([]byte, error) {
-	year := strconv.Itoa(hour.Year)
-	monthOfYear := strconv.Itoa(hour.MonthOfYear)
-	dayOfMonth := strconv.Itoa(hour.DayOfMonth)
-	hourOfDay := strconv.Itoa(hour.HourOfDay)
-	str := year + "/" + monthOfYear + "/" + dayOfMonth + ":" + hourOfDay
-	return []byte(str), nil
-}
-
-type Visitor struct {
+type visitor struct {
 	IP           string
 	RawUserAgent string
 }
 
-type StatusCounter struct {
+type statusCounter struct {
 	Informational int `json:"informational"`
 	Successful    int `json:"successful"`
 	Redirection   int `json:"redirection"`
@@ -116,13 +97,12 @@ func stripPortSuffix(str string) string {
 	host, _, err := net.SplitHostPort(str)
 	if err != nil {
 		return str
-	} else {
-		return host
 	}
+	return host
 }
 
 // Remove the http(s) prefix from a string if there is one
-func stripHttpPrefix(str string) string {
+func stripHTTPPrefix(str string) string {
 	if strings.HasPrefix(str, "http://") {
 		return str[7:]
 	} else if strings.HasPrefix(str, "https://") {
@@ -136,21 +116,15 @@ func stripHttpPrefix(str string) string {
 func getRawUserAgent(slc []string) string {
 	if len(slc) > 0 {
 		return slc[0]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // Convert a unix timestamp to the hour it is in
-func unixToHour(unix float64) Hour {
-	seconds, decimals := math.Modf(unix)
-	time := time.Unix(int64(seconds), int64(decimals*(1e9)))
-	return Hour{
-		Year:        time.Year(),
-		MonthOfYear: int(time.Month()),
-		DayOfMonth:  time.Day(),
-		HourOfDay:   time.Hour(),
-	}
+func roundUnixDownToHour(unix float64) int64 {
+	seconds := int64(unix)
+	rounded := seconds - (seconds % (60 * 60))
+	return rounded
 }
 
 // Get preferred language from a slice of Accept-Language headers
@@ -171,9 +145,8 @@ func getPreferredLanguage(slc []string) string {
 		}
 		lang := display.English.Tags().Name(tag)
 		return lang
-	} else {
-		return "None"
 	}
+	return "None"
 }
 
 // Get supported encoding/compression schemes from Accept-Encodings header
@@ -201,9 +174,8 @@ func getSupportedEncodings(slc []string) []string {
 			}
 		}
 		return clean
-	} else {
-		return []string{}
 	}
+	return []string{}
 }
 
 // Get content type from response header
@@ -215,9 +187,8 @@ func getContentType(slc []string) string {
 			raw = raw[:semicolon]
 		}
 		return raw
-	} else {
-		return "none"
 	}
+	return "none"
 }
 
 // Convert crypto/tls protocol version to human-readable string
@@ -239,7 +210,7 @@ func getProtocolFromVersion(version int) string {
 }
 
 // Add a log entry to an instance of statistics
-func addToStats(entry *LogEntry, stats *Statistics) error {
+func addToStats(entry *logEntry, stats *statistics) error {
 
 	// Get counter corresponding to host
 	host := stripPortSuffix(entry.Request.Host)
@@ -250,53 +221,53 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 	}
 
 	// Add general stats
-	counter.Total.Requests += 1
+	counter.Total.Requests++
 	counter.Total.SentBytes += entry.Size
 	counter.Total.Latency += entry.Duration
 
 	// Check if the visitor has not been seen yet
 	ip := stripPortSuffix(entry.Request.Address)
 	userAgent := getRawUserAgent(entry.Request.Headers.UserAgent)
-	visitor := Visitor{ip, userAgent}
-	if !counter.Total.Observed[visitor] {
+	uniqueVisitor := visitor{ip, userAgent}
+	if !counter.Total.Observed[uniqueVisitor] {
 		uaInfo := ua.Parse(userAgent)
 		if uaInfo.Bot {
-			counter.Devices.Bot += 1
+			counter.Devices.Bot++
 		} else if uaInfo.Tablet {
-			counter.Devices.Tablet += 1
+			counter.Devices.Tablet++
 		} else if uaInfo.Mobile {
-			counter.Devices.Mobile += 1
+			counter.Devices.Mobile++
 		} else if uaInfo.Desktop {
-			counter.Devices.Desktop += 1
+			counter.Devices.Desktop++
 		} else {
-			counter.Devices.Other += 1
+			counter.Devices.Other++
 		}
 		browser := uaInfo.Name
 		if browser == "" {
 			browser = "Unknown"
 		}
-		counter.Browsers[browser] += 1
+		counter.Browsers[browser]++
 
 		os := uaInfo.OS
 		if os == "" {
 			os = "Unknown"
 		}
-		counter.Systems[os] += 1
+		counter.Systems[os]++
 
 		prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
-		counter.Languages[prefLanguage] += 1
+		counter.Languages[prefLanguage]++
 
 		supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
 		for _, enc := range supEncodings {
-			counter.EncodingSupport[enc] += 1
+			counter.EncodingSupport[enc]++
 		}
 
-		counter.Total.Visitors += 1
-		counter.Total.Observed[visitor] = true
+		counter.Total.Visitors++
+		counter.Total.Observed[uniqueVisitor] = true
 	}
 
 	// Get stats counter corresponding with the timestamp
-	hour := unixToHour(entry.Stamp)
+	hour := roundUnixDownToHour(entry.Stamp)
 	hourly := counter.Hourly[hour]
 	if hourly == nil {
 		hourly = newHits()
@@ -304,12 +275,12 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 	}
 
 	// Add general stats to the hourly counter
-	hourly.Requests += 1
+	hourly.Requests++
 	hourly.SentBytes += entry.Size
 	hourly.Latency += entry.Duration
-	if !hourly.Observed[visitor] {
-		hourly.Visitors += 1
-		hourly.Observed[visitor] = true
+	if !hourly.Observed[uniqueVisitor] {
+		hourly.Visitors++
+		hourly.Observed[uniqueVisitor] = true
 	}
 
 	// Add crypto protocol and cipher stats
@@ -320,45 +291,46 @@ func addToStats(entry *LogEntry, stats *Statistics) error {
 		cipherCounter = map[string]int{}
 		counter.Crypto[protocol] = cipherCounter
 	}
-	cipherCounter[cipher] += 1
+	cipherCounter[cipher]++
 
 	// Add content type stats
 	contentType := getContentType(entry.Response.ContentType)
-	counter.ContentTypes[contentType] += 1
+	counter.ContentTypes[contentType]++
 
 	// Add location stats with the status code
-	statusCounter := counter.Locations[entry.Request.Location]
-	if statusCounter == nil {
-		statusCounter = &StatusCounter{}
-		counter.Locations[entry.Request.Location] = statusCounter
+	locStatusCounter := counter.Locations[entry.Request.Location]
+	if locStatusCounter == nil {
+		locStatusCounter = &statusCounter{}
+		counter.Locations[entry.Request.Location] = locStatusCounter
 	}
 	switch int(entry.Status / 100) {
 	case 0:
-		statusCounter.Cancelled += 1
+		locStatusCounter.Cancelled++
 	case 1:
-		statusCounter.Informational += 1
+		locStatusCounter.Informational++
 	case 2:
-		statusCounter.Successful += 1
+		locStatusCounter.Successful++
 	case 3:
-		statusCounter.Redirection += 1
+		locStatusCounter.Redirection++
 	case 4:
-		statusCounter.ClientError += 1
+		locStatusCounter.ClientError++
 	case 5:
-		statusCounter.ServerError += 1
+		locStatusCounter.ServerError++
 	}
 
 	// Add HTTP method stats
-	counter.Methods[entry.Request.Method] += 1
+	counter.Methods[entry.Request.Method]++
 
 	// Add HTTP protocol stats
-	counter.Protocols[entry.Request.Protocol] += 1
+	counter.Protocols[entry.Request.Protocol]++
 
 	// Change timestamp if current one lies outside the current boundaries
-	if stats.FirstStamp > entry.Stamp || stats.FirstStamp == 0 {
-		stats.FirstStamp = entry.Stamp
+	stamp := int64(entry.Stamp + 0.5)
+	if stats.FirstStamp > stamp || stats.FirstStamp == 0 {
+		stats.FirstStamp = stamp
 	}
-	if stats.LastStamp < entry.Stamp || stats.LastStamp == 0 {
-		stats.LastStamp = entry.Stamp
+	if stats.LastStamp < stamp || stats.LastStamp == 0 {
+		stats.LastStamp = stamp
 	}
 
 	return nil

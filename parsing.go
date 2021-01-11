@@ -14,7 +14,7 @@ import (
 	"github.com/oschwald/maxminddb-golang"
 )
 
-type LogEntry struct {
+type logEntry struct {
 	Stamp    float64 `json:"ts"`
 	Status   int     `json:"status"`
 	Duration float64 `json:"duration"`
@@ -41,7 +41,7 @@ type LogEntry struct {
 }
 
 // Parse all logs in the log directory and return the statistics
-func parseLogs(logDir string, geoFile string) (*Statistics, error) {
+func parseLogs(logDir string, geoFile string) (*statistics, error) {
 
 	// Create statistics instance
 	stats := newStatistics()
@@ -97,7 +97,7 @@ func parseLogs(logDir string, geoFile string) (*Statistics, error) {
 
 		// Scan line by line and add them to the statistics instance
 		for scanner.Scan() {
-			var line LogEntry
+			var line logEntry
 			err := json.Unmarshal(scanner.Bytes(), &line)
 			if err != nil {
 				log.Print("Log line could not be unmarshalled: ", err)
@@ -139,7 +139,7 @@ func parseLogs(logDir string, geoFile string) (*Statistics, error) {
 			if country == "" {
 				country = "Unknown"
 			}
-			counter.Countries[country] += 1
+			counter.Countries[country]++
 		}
 	}
 
