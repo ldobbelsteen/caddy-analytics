@@ -11,70 +11,73 @@ import (
 )
 
 type statistics struct {
-	LogDirectory  string              `json:"logDirectory"`
-	LogSizeBytes  int64               `json:"logSizeBytes"`
-	ParseDuration float64             `json:"parseDurationSeconds"`
-	FirstStamp    int64               `json:"firstStampUnix"`
-	LastStamp     int64               `json:"lastStampUnix"`
-	Counters      map[string]*counter `json:"counters"`
+	LogDirectory         string              `json:"logDirectory"`
+	LogSizeBytes         int64               `json:"logSizeBytes"`
+	ParseDurationSeconds float64             `json:"parseDurationSeconds"`
+	FirstStampUnix       int64               `json:"firstStampUnix"`
+	LastStampUnix        int64               `json:"lastStampUnix"`
+	HostCounters         map[string]*counter `json:"hostCounters"`
 }
 
 func newStatistics() *statistics {
 	return &statistics{
-		Counters: map[string]*counter{},
+		HostCounters: map[string]*counter{},
 	}
 }
 
 type counter struct {
-	Total   hits            `json:"total"`
-	Hourly  map[int64]*hits `json:"hourly"`
-	Devices struct {
+	TotalMetrics         metrics            `json:"totalMetrics"`
+	HourlyMetrics        map[int64]*metrics `json:"hourlyMetrics"`
+	NonBotVisitorDevices struct {
 		Mobile  int `json:"mobile"`
-		Bot     int `json:"bot"`
 		Other   int `json:"other"`
 		Tablet  int `json:"tablet"`
 		Desktop int `json:"desktop"`
-	} `json:"visitorDevice"`
-	Browsers        map[string]int            `json:"visitorBrowsers"`
-	Systems         map[string]int            `json:"visitorSystems"`
-	Languages       map[string]int            `json:"visitorPreferredLanguages"`
-	Countries       map[string]int            `json:"visitorCountries"`
-	EncodingSupport map[string]int            `json:"visitorEncodingSupport"`
-	Protocols       map[string]int            `json:"requestProtocols"`
-	Methods         map[string]int            `json:"requestMethods"`
-	Crypto          map[string]map[string]int `json:"requestCrypto"`
-	ContentTypes    map[string]int            `json:"responseContentTypes"`
-	Locations       map[string]*statusCounter `json:"requestLocationResponses"`
+	} `json:"nonBotVisitorDevices"`
+	NonBotVisitorBrowsers      map[string]int            `json:"nonBotVisitorBrowsers"`
+	NonBotVisitorSystems       map[string]int            `json:"nonBotVisitorSystems"`
+	NonBotVisitorPrefLanguages map[string]int            `json:"nonBotVisitorPrefLanguages"`
+	NonBotVisitorCountries     map[string]int            `json:"nonBotVisitorCountries"`
+	NonBotVisitorEncodings     map[string]int            `json:"nonBotVisitorEncodings"`
+	BotVisitors                map[string]int            `json:"botVisitors"`
+	RequestsByProtocol         map[string]int            `json:"requestsByProtocol"`
+	RequestsByMethod           map[string]int            `json:"requestsByMethod"`
+	RequestsByCrypto           map[string]map[string]int `json:"requestsByCrypto"`
+	ResponseByContent          map[string]int            `json:"responseByContent"`
+	ResponseByLocation         map[string]*statusCounter `json:"responseByLocation"`
 }
 
 func newCounter() *counter {
 	return &counter{
-		Total:           hits{Observed: map[visitor]bool{}},
-		Hourly:          map[int64]*hits{},
-		Browsers:        map[string]int{},
-		Systems:         map[string]int{},
-		Languages:       map[string]int{},
-		Countries:       map[string]int{},
-		EncodingSupport: map[string]int{},
-		Protocols:       map[string]int{},
-		Methods:         map[string]int{},
-		Crypto:          map[string]map[string]int{},
-		ContentTypes:    map[string]int{},
-		Locations:       map[string]*statusCounter{},
+		TotalMetrics:               metrics{ObservedBots: map[visitor]bool{}, ObservedNonBots: map[visitor]bool{}},
+		HourlyMetrics:              map[int64]*metrics{},
+		NonBotVisitorBrowsers:      map[string]int{},
+		NonBotVisitorSystems:       map[string]int{},
+		NonBotVisitorPrefLanguages: map[string]int{},
+		NonBotVisitorCountries:     map[string]int{},
+		NonBotVisitorEncodings:     map[string]int{},
+		BotVisitors:                map[string]int{},
+		RequestsByProtocol:         map[string]int{},
+		RequestsByMethod:           map[string]int{},
+		RequestsByCrypto:           map[string]map[string]int{},
+		ResponseByContent:          map[string]int{},
+		ResponseByLocation:         map[string]*statusCounter{},
 	}
 }
 
-type hits struct {
-	Requests  int              `json:"requests"`
-	Latency   float64          `json:"totalLatency"`
-	SentBytes int              `json:"sentBytes"`
-	Visitors  int              `json:"visitors"`
-	Observed  map[visitor]bool `json:"-"`
+type metrics struct {
+	Requests        int              `json:"requests"`
+	Latency         float64          `json:"latency"`
+	SentBytes       int              `json:"sentBytes"`
+	NonBotVisitors  int              `json:"nonBotVisitors"`
+	ObservedNonBots map[visitor]bool `json:"-"`
+	ObservedBots    map[visitor]bool `json:"-"`
 }
 
-func newHits() *hits {
-	return &hits{
-		Observed: map[visitor]bool{},
+func newMetrics() *metrics {
+	return &metrics{
+		ObservedNonBots: map[visitor]bool{},
+		ObservedBots:    map[visitor]bool{},
 	}
 }
 
@@ -84,12 +87,12 @@ type visitor struct {
 }
 
 type statusCounter struct {
-	Informational int `json:"informational"`
-	Successful    int `json:"successful"`
-	Redirection   int `json:"redirection"`
-	ClientError   int `json:"clientError"`
-	ServerError   int `json:"serverError"`
-	Cancelled     int `json:"cancelled"`
+	ZeroXX  int `json:"0xx"`
+	OneXX   int `json:"1xx"`
+	TwoXX   int `json:"2xx"`
+	ThreeXX int `json:"3xx"`
+	FourXX  int `json:"4xx"`
+	FiveXX  int `json:"5xx"`
 }
 
 // Remove the port suffix from a string if there is one
@@ -157,20 +160,20 @@ func getSupportedEncodings(slc []string) []string {
 		for _, enc := range slc {
 			enc = strings.TrimSpace(enc)
 			switch enc {
+			case "identity": // Do nothing, everyone supports this
+			case "utf-8": // Do nothing, everyone supports this
+			case "gzip":
+				clean = append(clean, "Gzip")
 			case "deflate":
 				clean = append(clean, "Deflate")
 			case "br":
 				clean = append(clean, "Brotli")
-			case "gzip":
-				clean = append(clean, "Gzip")
 			case "snappy":
 				clean = append(clean, "Snappy")
 			case "sdch":
 				clean = append(clean, "SDCH")
 			default:
-				if enc != "identity" && enc != "utf-8" {
-					clean = append(clean, enc)
-				}
+				clean = append(clean, enc)
 			}
 		}
 		return clean
@@ -214,123 +217,140 @@ func addToStats(entry *logEntry, stats *statistics) error {
 
 	// Get counter corresponding to host
 	host := stripPortSuffix(entry.Request.Host)
-	counter := stats.Counters[host]
+	counter := stats.HostCounters[host]
 	if counter == nil {
 		counter = newCounter()
-		stats.Counters[host] = counter
+		stats.HostCounters[host] = counter
 	}
 
 	// Add general stats
-	counter.Total.Requests++
-	counter.Total.SentBytes += entry.Size
-	counter.Total.Latency += entry.Duration
+	counter.TotalMetrics.Requests++
+	counter.TotalMetrics.SentBytes += entry.Size
+	counter.TotalMetrics.Latency += entry.Duration
 
 	// Check if the visitor has not been seen yet
 	ip := stripPortSuffix(entry.Request.Address)
 	userAgent := getRawUserAgent(entry.Request.Headers.UserAgent)
 	uniqueVisitor := visitor{ip, userAgent}
-	if !counter.Total.Observed[uniqueVisitor] {
+	if !counter.TotalMetrics.ObservedNonBots[uniqueVisitor] && !counter.TotalMetrics.ObservedBots[uniqueVisitor] {
+
+		// Get visitor's browser name
 		uaInfo := ua.Parse(userAgent)
-		if uaInfo.Bot {
-			counter.Devices.Bot++
-		} else if uaInfo.Tablet {
-			counter.Devices.Tablet++
-		} else if uaInfo.Mobile {
-			counter.Devices.Mobile++
-		} else if uaInfo.Desktop {
-			counter.Devices.Desktop++
-		} else {
-			counter.Devices.Other++
-		}
 		browser := uaInfo.Name
 		if browser == "" {
 			browser = "Unknown"
 		}
-		counter.Browsers[browser]++
 
-		os := uaInfo.OS
-		if os == "" {
-			os = "Unknown"
+		// Check if visitor is a bot and add stats if not
+		if uaInfo.Bot {
+			counter.BotVisitors[browser]++
+			counter.TotalMetrics.ObservedBots[uniqueVisitor] = true
+		} else {
+			counter.NonBotVisitorBrowsers[browser]++
+
+			// Get visitor device type
+			if uaInfo.Tablet {
+				counter.NonBotVisitorDevices.Tablet++
+			} else if uaInfo.Mobile {
+				counter.NonBotVisitorDevices.Mobile++
+			} else if uaInfo.Desktop {
+				counter.NonBotVisitorDevices.Desktop++
+			} else {
+				counter.NonBotVisitorDevices.Other++
+			}
+
+			// Get visitor operating system
+			os := uaInfo.OS
+			if os == "" {
+				os = "Unknown"
+			}
+			counter.NonBotVisitorSystems[os]++
+
+			// Get the main/preferred language of the visitor
+			prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
+			counter.NonBotVisitorPrefLanguages[prefLanguage]++
+
+			// Get all the encodings the visitor supports
+			supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
+			for _, enc := range supEncodings {
+				counter.NonBotVisitorEncodings[enc]++
+			}
+
+			counter.TotalMetrics.NonBotVisitors++
+			counter.TotalMetrics.ObservedNonBots[uniqueVisitor] = true
 		}
-		counter.Systems[os]++
-
-		prefLanguage := getPreferredLanguage(entry.Request.Headers.Languages)
-		counter.Languages[prefLanguage]++
-
-		supEncodings := getSupportedEncodings(entry.Request.Headers.Encodings)
-		for _, enc := range supEncodings {
-			counter.EncodingSupport[enc]++
-		}
-
-		counter.Total.Visitors++
-		counter.Total.Observed[uniqueVisitor] = true
 	}
 
-	// Get stats counter corresponding with the timestamp
+	// Get stats counter corresponding with the hour of the timestamp
 	hour := roundUnixDownToHour(entry.Stamp)
-	hourly := counter.Hourly[hour]
+	hourly := counter.HourlyMetrics[hour]
 	if hourly == nil {
-		hourly = newHits()
-		counter.Hourly[hour] = hourly
+		hourly = newMetrics()
+		counter.HourlyMetrics[hour] = hourly
 	}
 
 	// Add general stats to the hourly counter
 	hourly.Requests++
 	hourly.SentBytes += entry.Size
 	hourly.Latency += entry.Duration
-	if !hourly.Observed[uniqueVisitor] {
-		hourly.Visitors++
-		hourly.Observed[uniqueVisitor] = true
+	if !hourly.ObservedNonBots[uniqueVisitor] && !hourly.ObservedBots[uniqueVisitor] {
+		uaInfo := ua.Parse(userAgent)
+		if !uaInfo.Bot {
+			hourly.NonBotVisitors++
+			hourly.ObservedNonBots[uniqueVisitor] = true
+		} else {
+			hourly.ObservedBots[uniqueVisitor] = true
+		}
 	}
 
 	// Add crypto protocol and cipher stats
 	cipher := tls.CipherSuiteName(entry.Request.Encryption.Cipher)
 	protocol := getProtocolFromVersion(int(entry.Request.Encryption.Version))
-	cipherCounter := counter.Crypto[protocol]
+	cipherCounter := counter.RequestsByCrypto[protocol]
 	if cipherCounter == nil {
 		cipherCounter = map[string]int{}
-		counter.Crypto[protocol] = cipherCounter
+		counter.RequestsByCrypto[protocol] = cipherCounter
 	}
 	cipherCounter[cipher]++
 
 	// Add content type stats
 	contentType := getContentType(entry.Response.ContentType)
-	counter.ContentTypes[contentType]++
+	counter.ResponseByContent[contentType]++
 
 	// Add location stats with the status code
-	locStatusCounter := counter.Locations[entry.Request.Location]
+	locStatusCounter := counter.ResponseByLocation[entry.Request.Location]
 	if locStatusCounter == nil {
 		locStatusCounter = &statusCounter{}
-		counter.Locations[entry.Request.Location] = locStatusCounter
+		counter.ResponseByLocation[entry.Request.Location] = locStatusCounter
 	}
 	switch int(entry.Status / 100) {
 	case 0:
-		locStatusCounter.Cancelled++
+		locStatusCounter.ZeroXX++
 	case 1:
-		locStatusCounter.Informational++
+		locStatusCounter.OneXX++
 	case 2:
-		locStatusCounter.Successful++
+		locStatusCounter.TwoXX++
 	case 3:
-		locStatusCounter.Redirection++
+		locStatusCounter.ThreeXX++
 	case 4:
-		locStatusCounter.ClientError++
+		locStatusCounter.FourXX++
 	case 5:
-		locStatusCounter.ServerError++
+		locStatusCounter.FiveXX++
 	}
 
 	// Add HTTP method stats
-	counter.Methods[entry.Request.Method]++
+	counter.RequestsByMethod[entry.Request.Method]++
 
 	// Add HTTP protocol stats
-	counter.Protocols[entry.Request.Protocol]++
+	counter.RequestsByProtocol[entry.Request.Protocol]++
 
 	// Change timestamp if current one lies outside the current boundaries
-	stamp := int64(entry.Stamp + 0.5)
-	if stats.FirstStamp > stamp || stats.FirstStamp == 0 {
-		stats.FirstStamp = stamp
+	stamp := int64(entry.Stamp)
+	if stats.FirstStampUnix > stamp || stats.FirstStampUnix == 0 {
+		stats.FirstStampUnix = stamp
 	}
-	if stats.LastStamp < stamp || stats.LastStamp == 0 {
-		stats.LastStamp = stamp
+	if stats.LastStampUnix < stamp || stats.LastStampUnix == 0 {
+		stats.LastStampUnix = stamp
 	}
 
 	return nil

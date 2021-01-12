@@ -21,3 +21,15 @@ export function unixToDate(unix) {
 	const string = date.toLocaleDateString()
 	return string
 }
+
+// Round down a unix timestamp down to the hour
+export function roundUnixDownToHour(unix) {
+	return unix - (unix % (60 * 60))
+}
+
+// Remove all children of an HTML element
+export function removeAllChildren(element) {
+	while (element.firstChild) {
+		element.removeChild(element.firstChild)
+	}
+}

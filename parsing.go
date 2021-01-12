@@ -122,8 +122,8 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 	defer geo.Close()
 
 	// Get countries of all visitors observed
-	for _, counter := range stats.Counters {
-		for visitor := range counter.Total.Observed {
+	for _, counter := range stats.HostCounters {
+		for visitor := range counter.TotalMetrics.ObservedNonBots {
 			var info struct {
 				Country struct {
 					Names map[string]string `maxminddb:"names"`
@@ -139,11 +139,11 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 			if country == "" {
 				country = "Unknown"
 			}
-			counter.Countries[country]++
+			counter.NonBotVisitorCountries[country]++
 		}
 	}
 
 	// Save parse duration and return result
-	stats.ParseDuration = time.Since(startTime).Seconds()
+	stats.ParseDurationSeconds = time.Since(startTime).Seconds()
 	return stats, nil
 }

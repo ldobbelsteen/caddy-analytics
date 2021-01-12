@@ -22,10 +22,10 @@ async function updateData() {
 
 	// Sort all virtual hosts by total request count
 	const menu = document.querySelector("nav")
-	const counters = json["counters"]
+	const counters = json.hostCounters
 	const sortedHosts = Object.keys(counters).sort((a, b) => {
-		const aVal = counters[a]["total"]["requests"]
-		const bVal = counters[b]["total"]["requests"]
+		const aVal = counters[a].totalMetrics.requests
+		const bVal = counters[b].totalMetrics.requests
 		return bVal - aVal
 	})
 
@@ -34,8 +34,7 @@ async function updateData() {
 		const button = document.createElement("div")
 		button.textContent = host
 		button.onclick = () => {
-			const data = json["counters"][button.textContent]
-			renderHourly(data["hourly"], "general-stats-hourly")
+			recreateHourlyChart("general-stats-hourly", json, host)
 		}
 		menu.appendChild(button)
 	})
@@ -43,31 +42,40 @@ async function updateData() {
 
 updateData()
 
-function renderHourly(rawData, canvasId) {
-	const canvas = document.getElementById(canvasId)
-	const lastHour = Object.keys(rawData).reduce((lastHour, hour) => parseInt(hour) > parseInt(lastHour) ? parseInt(hour) : parseInt(lastHour))
-	const firstHour = lastHour - (6 * 24 * 60 * 60)
+function recreateHourlyChart(container, data, host) {
+	const div = document.getElementById(container)
+	tools.removeAllChildren(div)
+	const canvas = document.createElement("canvas")
+	canvas.width = 600
+	canvas.height = 400
+	div.appendChild(canvas)
 
-	const data = []
+	const lastHour = tools.roundUnixDownToHour(data.lastStampUnix)
+	const firstHour = lastHour - (4 * 24 * 60 * 60)
+
+	data = data.hostCounters[host].hourlyMetrics
+	const processedData = []
 	let currentHour = firstHour
 	do {
 		const timeString = (new Date(currentHour * 1000)).toLocaleString()
-		const requestCount = rawData[currentHour] != undefined ? rawData[currentHour].requests : 0
-		data.push({
+		const requestCount = data[currentHour] != undefined ? data[currentHour].requests : 0
+		processedData.push({
 			x: timeString,
 			y: requestCount
 		})
 		currentHour += 3600
 	} while (currentHour <= lastHour)
 
-	new Chart(canvas, {
+	const chart = new Chart(canvas, {
 		type: "line",
 		data: {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: data
+				data: processedData
 			}]
 		}
 	})
+
+	return chart
 }
