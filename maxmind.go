@@ -15,7 +15,8 @@ import (
 // Fetch latest MaxMind GeoIP Country database with license key
 // into the OS's temporary directory and return path to it
 func fetchGeolocationDatabase(license string) (string, error) {
-	targetFile := filepath.Join(os.TempDir(), "caddy-analytics-maxmind-geolite2-country.mmdb")
+	targetDir := os.TempDir()
+	targetFile := filepath.Join(targetDir, "caddy-analytics-maxmind-geolite2-country.mmdb")
 	url := "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&license_key=" + license + "&suffix=tar.gz"
 
 	// Fetch the latest database
@@ -72,6 +73,12 @@ func fetchGeolocationDatabase(license string) (string, error) {
 				}
 			}
 		}
+	}
+
+	// Create temporary directory if it doesn't exist
+	err := os.MkdirAll(targetDir, os.ModePerm)
+	if err != nil {
+		return "", err
 	}
 
 	// Get database file stats and fetch if it doesn't exist
