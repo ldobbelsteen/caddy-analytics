@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -28,7 +29,10 @@ func main() {
 		log.Fatal("Invalid port number!")
 	}
 	if *maxmindKey == "" {
-		log.Fatal("No MaxMind license key specified!")
+		*maxmindKey = os.Getenv("GEO")
+		if *maxmindKey == "" {
+			log.Fatal("No MaxMind license key specified!")
+		}
 	}
 
 	// Download/update geolocation database

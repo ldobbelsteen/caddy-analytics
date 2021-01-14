@@ -12,6 +12,6 @@ RUN go get -d
 RUN CGO_ENABLED=0 go build -o bin
 
 FROM scratch
-COPY --from=web-builder /build/dist /app/web
-COPY --from=bin-builder /build/bin /app/caddy-analytics
-CMD /app/caddy-analytics --web "/app/web" --geo ${LICENSE}
+COPY --from=web-builder /build/dist /web
+COPY --from=bin-builder /build/bin /caddy-analytics
+CMD ["/caddy-analytics", "--web", "/web"]
