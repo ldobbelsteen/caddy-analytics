@@ -1,11 +1,11 @@
-FROM node AS web-builder
+FROM node:alpine AS web-builder
 WORKDIR /build
 COPY web/package.json web/package-lock.json ./
 RUN npm install
 COPY web ./
 RUN npm run build
 
-FROM golang AS bin-builder
+FROM golang:alpine AS bin-builder
 WORKDIR /build
 COPY . .
 RUN go get -d
