@@ -9,9 +9,9 @@ FROM golang AS bin-builder
 WORKDIR /build
 COPY . .
 RUN go get -d
-RUN CGO_ENABLED=0 go build -o bin
+RUN go build -o bin
 
-FROM scratch
-COPY --from=web-builder /build/dist /web
-COPY --from=bin-builder /build/bin /caddy-analytics
-CMD ["/caddy-analytics", "--web", "/web"]
+FROM alpine
+COPY --from=web-builder /build/dist /var/www/caddy-analytics
+COPY --from=bin-builder /build/bin /usr/bin/caddy-analytics
+CMD ["caddy-analytics", "--web", "/var/www/caddy-analytics"]

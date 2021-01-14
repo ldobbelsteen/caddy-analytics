@@ -88,6 +88,9 @@ func fetchGeolocationDatabase(license string) (string, error) {
 		return targetFile, fetch()
 	} else if err != nil {
 		return "", err
+	} else if info.Size() < 1024*8 {
+		log.Print("Invalid database found, downloading new one...")
+		return targetFile, fetch()
 	}
 
 	// Get only the headers of the external database

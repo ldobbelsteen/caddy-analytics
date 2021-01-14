@@ -5,11 +5,13 @@
 	},
 	"parserOptions": {
 		"sourceType": "module",
-		"ecmaVersion": 2017
+		"ecmaVersion": 2020
 	},
 	"rules": {
 		"indent": ["warn", "tab"],
 		"quotes": ["warn", "double"],
-		"semi": ["warn", "never"]
+		"semi": ["warn", "never"],
+		"prefer-const": "warn",
+		"no-var": "warn"
 	}
 }
