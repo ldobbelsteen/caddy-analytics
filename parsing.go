@@ -53,13 +53,13 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 		log.Print("Log directory does not exist: ", err)
 		return nil, err
 	}
-	if !info.Mode().IsDir() {
+	if !info.IsDir() {
 		err = errors.New("stat " + logDir + ": not a directory")
 		log.Print("Log directory is not a directory: ", err)
 		return nil, err
 	}
 
-	// Find log files with log extension and optionally more extensions
+	// Find log files with log extension
 	logFiles, _ := filepath.Glob(filepath.Join(logDir, "*.log*"))
 
 	// Start the timer

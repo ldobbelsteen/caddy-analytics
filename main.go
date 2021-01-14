@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -13,15 +14,27 @@ func main() {
 
 	// Read command line arguments
 	logDirectory := flag.String("logs", "/var/log/caddy", "Path to the directory where Caddy's logs are stored")
-	geoDatabase := flag.String("geo", "/etc/maxmind/country.mmdb", "Path to your .mmdb file")
-	listeningPort := flag.String("port", "5734", "Port on which the program should listen")
-	webDirectory := flag.String("web", "web/dist", "Path to the directory of the web interface")
+	maxmindKey := flag.String("geo", "", "MaxMind license key for downloading geolocation database")
+	listeningPort := flag.Int("port", 5734, "Port on which the program should serve the web interface")
+	webDirectory := flag.String("web", "web/dist", "Path to the directory of the web interface files")
 	cacheTime := flag.Int("cache", 10, "Number of seconds to cache parse results before discarding")
 	flag.Parse()
 
 	// Validate arguments
 	if *cacheTime < 1 {
 		log.Fatal("Invalid cache time!")
+	}
+	if *listeningPort < 1024 || *listeningPort > 65535 {
+		log.Fatal("Invalid port number!")
+	}
+	if *maxmindKey == "" {
+		log.Fatal("No MaxMind license key specified!")
+	}
+
+	// Download/update geolocation database
+	database, err := fetchGeolocationDatabase(*maxmindKey)
+	if err != nil {
+		log.Fatal("Failed to download/update geolocation database: ", err)
 	}
 
 	// For caching parse results in serialized form
@@ -36,7 +49,7 @@ func main() {
 		parseWait.Wait()
 		if jsonCache == nil {
 			parseWait.Add(1)
-			stats, err := parseLogs(*logDirectory, *geoDatabase)
+			stats, err := parseLogs(*logDirectory, database)
 			if err != nil {
 				log.Print("Failed to parse logs: ", err)
 				http.Error(writer, "failed to parse logs", http.StatusInternalServerError)
@@ -59,9 +72,10 @@ func main() {
 	})
 
 	// Start listening
-	listenAddress := ":" + *listeningPort
-	log.Print("Started listening on port " + *listeningPort + "...")
-	err := http.ListenAndServe(listenAddress, nil)
+	portString := strconv.Itoa(*listeningPort)
+	listenAddress := ":" + portString
+	log.Print("Started listening on port " + portString + "...")
+	err = http.ListenAndServe(listenAddress, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

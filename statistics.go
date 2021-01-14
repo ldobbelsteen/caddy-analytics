@@ -21,19 +21,14 @@ type statistics struct {
 
 func newStatistics() *statistics {
 	return &statistics{
-		HostCounters: map[string]*counter{},
+		HostCounters: make(map[string]*counter),
 	}
 }
 
 type counter struct {
-	TotalMetrics         metrics            `json:"totalMetrics"`
-	HourlyMetrics        map[int64]*metrics `json:"hourlyMetrics"`
-	NonBotVisitorDevices struct {
-		Mobile  int `json:"mobile"`
-		Other   int `json:"other"`
-		Tablet  int `json:"tablet"`
-		Desktop int `json:"desktop"`
-	} `json:"nonBotVisitorDevices"`
+	TotalMetrics               metrics                   `json:"totalMetrics"`
+	HourlyMetrics              map[int64]*metrics        `json:"hourlyMetrics"`
+	NonBotVisitorDevices       map[string]int            `json:"nonBotVisitorDevices"`
 	NonBotVisitorBrowsers      map[string]int            `json:"nonBotVisitorBrowsers"`
 	NonBotVisitorSystems       map[string]int            `json:"nonBotVisitorSystems"`
 	NonBotVisitorPrefLanguages map[string]int            `json:"nonBotVisitorPrefLanguages"`
@@ -49,19 +44,20 @@ type counter struct {
 
 func newCounter() *counter {
 	return &counter{
-		TotalMetrics:               metrics{ObservedBots: map[visitor]bool{}, ObservedNonBots: map[visitor]bool{}},
-		HourlyMetrics:              map[int64]*metrics{},
-		NonBotVisitorBrowsers:      map[string]int{},
-		NonBotVisitorSystems:       map[string]int{},
-		NonBotVisitorPrefLanguages: map[string]int{},
-		NonBotVisitorCountries:     map[string]int{},
-		NonBotVisitorEncodings:     map[string]int{},
-		BotVisitors:                map[string]int{},
-		RequestsByProtocol:         map[string]int{},
-		RequestsByMethod:           map[string]int{},
-		RequestsByCrypto:           map[string]map[string]int{},
-		ResponseByContent:          map[string]int{},
-		ResponseByLocation:         map[string]*statusCounter{},
+		TotalMetrics:               metrics{ObservedBots: make(map[visitor]bool), ObservedNonBots: make(map[visitor]bool)},
+		HourlyMetrics:              make(map[int64]*metrics),
+		NonBotVisitorDevices:       make(map[string]int),
+		NonBotVisitorBrowsers:      make(map[string]int),
+		NonBotVisitorSystems:       make(map[string]int),
+		NonBotVisitorPrefLanguages: make(map[string]int),
+		NonBotVisitorCountries:     make(map[string]int),
+		NonBotVisitorEncodings:     make(map[string]int),
+		BotVisitors:                make(map[string]int),
+		RequestsByProtocol:         make(map[string]int),
+		RequestsByMethod:           make(map[string]int),
+		RequestsByCrypto:           make(map[string]map[string]int),
+		ResponseByContent:          make(map[string]int),
+		ResponseByLocation:         make(map[string]*statusCounter),
 	}
 }
 
@@ -76,8 +72,8 @@ type metrics struct {
 
 func newMetrics() *metrics {
 	return &metrics{
-		ObservedNonBots: map[visitor]bool{},
-		ObservedBots:    map[visitor]bool{},
+		ObservedNonBots: make(map[visitor]bool),
+		ObservedBots:    make(map[visitor]bool),
 	}
 }
 
@@ -178,7 +174,7 @@ func getSupportedEncodings(slc []string) []string {
 		}
 		return clean
 	}
-	return []string{}
+	return make([]string, 0)
 }
 
 // Get content type from response header
@@ -250,13 +246,13 @@ func addToStats(entry *logEntry, stats *statistics) error {
 
 			// Get visitor device type
 			if uaInfo.Tablet {
-				counter.NonBotVisitorDevices.Tablet++
+				counter.NonBotVisitorDevices["Tablet"]++
 			} else if uaInfo.Mobile {
-				counter.NonBotVisitorDevices.Mobile++
+				counter.NonBotVisitorDevices["Mobile"]++
 			} else if uaInfo.Desktop {
-				counter.NonBotVisitorDevices.Desktop++
+				counter.NonBotVisitorDevices["Desktop"]++
 			} else {
-				counter.NonBotVisitorDevices.Other++
+				counter.NonBotVisitorDevices["Other"]++
 			}
 
 			// Get visitor operating system
@@ -308,7 +304,7 @@ func addToStats(entry *logEntry, stats *statistics) error {
 	protocol := getProtocolFromVersion(int(entry.Request.Encryption.Version))
 	cipherCounter := counter.RequestsByCrypto[protocol]
 	if cipherCounter == nil {
-		cipherCounter = map[string]int{}
+		cipherCounter = make(map[string]int)
 		counter.RequestsByCrypto[protocol] = cipherCounter
 	}
 	cipherCounter[cipher]++
