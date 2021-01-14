@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -35,6 +36,9 @@ func fetchGeolocationDatabase(license string) (string, error) {
 			return err
 		}
 		defer response.Body.Close()
+		if response.StatusCode != 200 {
+			return errors.New("invalid MaxMind license key")
+		}
 
 		// Decompress the file
 		gzipReader, err := gzip.NewReader(response.Body)
@@ -83,6 +87,9 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	response, err := http.Head(url)
 	if err != nil {
 		return "", err
+	}
+	if response.StatusCode != 200 {
+		return "", errors.New("invalid MaxMind license key")
 	}
 
 	// Extract the build time of the most recent database
