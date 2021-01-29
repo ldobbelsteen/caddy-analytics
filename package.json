@@ -1,0 +1,12 @@
+{
+	"scripts": {
+		"watch": "nodemon --config nodemon.json",
+		"build": "snowpack build --config snowpack.json && go build -o build/bin"
+	},
+	"devDependencies": {
+		"chart.js": "^3.0.0-beta.8",
+		"eslint": "^7.17.0",
+		"nodemon": "^2.0.7",
+		"snowpack": "^3.0.10"
+	}
+}
