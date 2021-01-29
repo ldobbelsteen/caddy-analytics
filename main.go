@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-//go:embed build/web
+//go:embed web/dist
 var webFiles embed.FS
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
 	var parseWait sync.WaitGroup
 
 	// Handler for serving web files
-	webFiles, err := fs.Sub(webFiles, "build/web")
+	webFiles, err := fs.Sub(webFiles, "web/dist")
 	if err != nil {
 		log.Fatal("Failed to open web files root: ", err)
 	}

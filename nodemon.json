@@ -1,4 +1,0 @@
-{   
-	"ignore": ["build"],
-	"exec": "npm run build"
-}

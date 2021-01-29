@@ -4,7 +4,7 @@
 		"web": "/"
 	},
 	"buildOptions": {
-		"out": "build/web"
+		"out": "web/dist"
 	},
 	"optimize": {
 		"bundle": true,
