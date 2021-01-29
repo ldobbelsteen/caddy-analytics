@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -37,8 +38,10 @@ func fetchGeolocationDatabase(license string) (string, error) {
 			return err
 		}
 		defer response.Body.Close()
-		if response.StatusCode != 200 {
+		if response.StatusCode == 401 {
 			return errors.New("invalid MaxMind license key")
+		} else if response.StatusCode != 200 {
+			return errors.New("http request failed with status code " + strconv.Itoa(response.StatusCode))
 		}
 
 		// Decompress the file
@@ -84,12 +87,12 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	// Get database file stats and fetch if it doesn't exist
 	info, err := os.Stat(targetFile)
 	if os.IsNotExist(err) {
-		log.Print("No cached database found, downloading now...")
+		log.Print("No cached database found, fetching...")
 		return targetFile, fetch()
 	} else if err != nil {
 		return "", err
 	} else if info.Size() < 1024*8 {
-		log.Print("Invalid database found, downloading new one...")
+		log.Print("Invalid database found, fetching...")
 		return targetFile, fetch()
 	}
 
@@ -98,8 +101,10 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if response.StatusCode != 200 {
+	if response.StatusCode == 401 {
 		return "", errors.New("invalid MaxMind license key")
+	} else if response.StatusCode != 200 {
+		return "", errors.New("http request failed with status code " + strconv.Itoa(response.StatusCode))
 	}
 
 	// Extract the build time of the most recent database
@@ -110,11 +115,11 @@ func fetchGeolocationDatabase(license string) (string, error) {
 
 	// Get new database if it is outdated
 	if build.After(info.ModTime()) {
-		log.Print("Cached geolocation database is outdated, fetching new one...")
+		log.Print("Cached geo database is outdated, fetching...")
 		return targetFile, fetch()
 	}
 
 	// If already existed and not out-of-date, do nothing
-	log.Print("Cached geolocation database is up-to-date, skipping downloading new one...")
+	log.Print("Cached geo database is up-to-date...")
 	return targetFile, nil
 }

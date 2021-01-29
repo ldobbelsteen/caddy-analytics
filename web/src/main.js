@@ -29,7 +29,7 @@ Chart.register(
 window.onload = async () => {
 
 	// Fetch statistics/analytics
-	const raw = await fetch("/stats", { cache: "no-store" })
+	const raw = await fetch("/data", { cache: "no-store" })
 	const json = await raw.json()
 
 	// Write general log statistics

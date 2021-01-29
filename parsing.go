@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -50,13 +49,10 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 	// Validate log directory
 	info, err := os.Stat(logDir)
 	if err != nil {
-		log.Print("Log directory does not exist: ", err)
 		return nil, err
 	}
 	if !info.IsDir() {
-		err = errors.New("stat " + logDir + ": not a directory")
-		log.Print("Log directory is not a directory: ", err)
-		return nil, err
+		return nil, errors.New("stat " + logDir + ": not a directory")
 	}
 
 	// Find log files with log extension
@@ -71,7 +67,6 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 		// Open the log file
 		file, err := os.Open(logFile)
 		if err != nil {
-			log.Print("Log file could not be opened: ", err)
 			return nil, err
 		}
 		defer file.Close()
@@ -79,7 +74,6 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 		// Get log file size in bytes
 		info, err := file.Stat()
 		if err != nil {
-			log.Print("Log file stats could not be retrieved: ", err)
 			return nil, err
 		}
 		stats.LogSizeBytes += info.Size()
@@ -89,7 +83,6 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 		if filepath.Ext(logFile) == ".gz" {
 			decompressed, err := gzip.NewReader(file)
 			if err != nil {
-				log.Print("Log file could not be decompressed: ", err)
 				return nil, err
 			}
 			scanner = bufio.NewScanner(decompressed)
@@ -100,12 +93,10 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 			var line logEntry
 			err := json.Unmarshal(scanner.Bytes(), &line)
 			if err != nil {
-				log.Print("Log line could not be unmarshalled: ", err)
 				return nil, err
 			}
 			err = addToStats(&line, stats)
 			if err != nil {
-				log.Print("Log line could not be parsed: ", err)
 				return nil, err
 			}
 		}
@@ -116,7 +107,6 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 	// Open geolocation database
 	geo, err := maxminddb.Open(geoFile)
 	if err != nil {
-		log.Print("Geolocation database could not be opened: ", err)
 		return nil, err
 	}
 	defer geo.Close()
@@ -132,7 +122,6 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 			ip := net.ParseIP(visitor.IP)
 			err := geo.Lookup(ip, &info)
 			if err != nil {
-				log.Print("IP country lookup failed: ", err)
 				return nil, err
 			}
 			country := info.Country.Names["en"]

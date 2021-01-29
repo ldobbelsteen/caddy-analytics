@@ -1,8 +1,10 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"flag"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -11,15 +13,35 @@ import (
 	"time"
 )
 
+//go:embed web/dist
+var webFiles embed.FS
+
 func main() {
 
 	// Read command line arguments
 	logDirectory := flag.String("logs", "/var/log/caddy", "Path to the directory where Caddy's logs are stored")
-	maxmindKey := flag.String("geo", "", "MaxMind license key for downloading geolocation database")
+	maxmindKey := flag.String("geo", "", "MaxMind license key for downloading the geolocation database")
 	listeningPort := flag.Int("port", 5734, "Port on which the program should serve the web interface")
-	webDirectory := flag.String("web", "web/dist", "Path to the directory of the web interface files")
 	cacheTime := flag.Int("cache", 10, "Number of seconds to cache parse results before discarding")
 	flag.Parse()
+
+	// Override arguments with environment variables if they exist
+	if logs := os.Getenv("LOGS"); logs != "" {
+		*logDirectory = logs
+	}
+	if geo := os.Getenv("GEO"); geo != "" {
+		*maxmindKey = geo
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		if port, err := strconv.Atoi(port); err != nil {
+			*listeningPort = port
+		}
+	}
+	if cache := os.Getenv("CACHE"); cache != "" {
+		if cache, err := strconv.Atoi(cache); err != nil {
+			*cacheTime = cache
+		}
+	}
 
 	// Validate arguments
 	if *cacheTime < 1 {
@@ -29,10 +51,7 @@ func main() {
 		log.Fatal("Invalid port number!")
 	}
 	if *maxmindKey == "" {
-		*maxmindKey = os.Getenv("GEO")
-		if *maxmindKey == "" {
-			log.Fatal("No MaxMind license key specified!")
-		}
+		log.Fatal("No MaxMind license key specified!")
 	}
 
 	// Download/update geolocation database
@@ -46,10 +65,14 @@ func main() {
 	var parseWait sync.WaitGroup
 
 	// Handler for serving web files
-	http.Handle("/", http.FileServer(http.Dir(*webDirectory)))
+	webFiles, err := fs.Sub(webFiles, "web/dist")
+	if err != nil {
+		log.Fatal("Failed to open web files root: ", err)
+	}
+	http.Handle("/", http.FileServer(http.FS(webFiles)))
 
 	// Handle function for serving statistics parsed from the logs in JSON format
-	http.HandleFunc("/stats", func(writer http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("/data", func(writer http.ResponseWriter, request *http.Request) {
 		parseWait.Wait()
 		if jsonCache == nil {
 			parseWait.Add(1)

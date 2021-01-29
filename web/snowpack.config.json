@@ -8,7 +8,6 @@
 	"optimize": {
 		"bundle": true,
 		"minify": true,
-		"manifest": false,
 		"treeshake": true,
 		"target": "es2015"
 	}
