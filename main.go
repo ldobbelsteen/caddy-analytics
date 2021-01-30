@@ -14,7 +14,7 @@ import (
 )
 
 //go:embed web/build
-var webFiles embed.FS
+var web embed.FS
 
 func main() {
 
@@ -25,7 +25,7 @@ func main() {
 	cacheTime := flag.Int("cache", 10, "Number of seconds to cache parse results before discarding")
 	flag.Parse()
 
-	// Override arguments with environment variables if they exist
+	// Override arguments with environment variables if they're defined
 	if logs := os.Getenv("LOGS"); logs != "" {
 		*logDirectory = logs
 	}
@@ -55,47 +55,49 @@ func main() {
 	}
 
 	// Download/update geolocation database
-	database, err := fetchGeolocationDatabase(*maxmindKey)
+	geoDatabase, err := getGeolocationDatabase(*maxmindKey)
 	if err != nil {
 		log.Fatal("Failed to download/update geolocation database: ", err)
 	}
 
 	// For caching parse results in serialized form
-	var jsonCache []byte
-	var parseWait sync.WaitGroup
+	var cache []byte
+	var wait sync.WaitGroup
 
 	// Handler for serving web files
-	webFiles, err := fs.Sub(webFiles, "web/build")
+	web, err := fs.Sub(web, "web/build")
 	if err != nil {
 		log.Fatal("Failed to open web files root: ", err)
 	}
-	http.Handle("/", http.FileServer(http.FS(webFiles)))
+	http.Handle("/", http.FileServer(http.FS(web)))
 
-	// Handle function for serving statistics parsed from the logs in JSON format
+	// Handle function for serving statistics in JSON format
 	http.HandleFunc("/data", func(writer http.ResponseWriter, request *http.Request) {
-		parseWait.Wait()
-		if jsonCache == nil {
-			parseWait.Add(1)
-			stats, err := parseLogs(*logDirectory, database)
+		wait.Wait()
+		if cache == nil {
+			wait.Add(1)
+			stats, err := parseLogs(*logDirectory, geoDatabase)
 			if err != nil {
 				log.Print("Failed to parse logs: ", err)
 				http.Error(writer, "failed to parse logs", http.StatusInternalServerError)
-				parseWait.Done()
+				wait.Done()
 				return
 			}
-			jsonCache, err = json.MarshalIndent(stats, "", "  ")
+			cache, err = json.MarshalIndent(stats, "", "	")
 			if err != nil {
-				jsonCache = nil
+				cache = nil
 				log.Print("Failed to convert to JSON: ", err)
 				http.Error(writer, "failed to convert json", http.StatusInternalServerError)
-				parseWait.Done()
+				wait.Done()
 				return
 			}
-			time.AfterFunc(time.Duration(*cacheTime)*time.Second, func() { jsonCache = nil })
-			parseWait.Done()
+			time.AfterFunc(time.Duration(*cacheTime)*time.Second, func() {
+				cache = nil
+			})
+			wait.Done()
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		writer.Write(jsonCache)
+		writer.Write(cache)
 	})
 
 	// Start listening

@@ -15,7 +15,7 @@ import (
 
 // Fetch latest MaxMind GeoIP Country database with license key
 // into the OS's temporary directory and return path to it
-func fetchGeolocationDatabase(license string) (string, error) {
+func getGeolocationDatabase(license string) (string, error) {
 	targetDir := os.TempDir()
 	targetFile := filepath.Join(targetDir, "caddy-analytics-maxmind-geolite2-country.mmdb")
 	url := "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&license_key=" + license + "&suffix=tar.gz"
@@ -88,12 +88,19 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	info, err := os.Stat(targetFile)
 	if os.IsNotExist(err) {
 		log.Print("No cached database found, fetching...")
-		return targetFile, fetch()
+		err := fetch()
+		if err != nil {
+			return "", err
+		}
+		return targetFile, nil
 	} else if err != nil {
 		return "", err
 	} else if info.Size() < 1024*8 {
 		log.Print("Invalid database found, fetching...")
-		return targetFile, fetch()
+		if err != nil {
+			return "", err
+		}
+		return targetFile, nil
 	}
 
 	// Get only the headers of the external database
@@ -104,7 +111,8 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	if response.StatusCode == 401 {
 		return "", errors.New("invalid MaxMind license key")
 	} else if response.StatusCode != 200 {
-		return "", errors.New("http request failed with status code " + strconv.Itoa(response.StatusCode))
+		status := strconv.Itoa(response.StatusCode)
+		return "", errors.New("http request failed with status code " + status)
 	}
 
 	// Extract the build time of the most recent database
@@ -116,7 +124,10 @@ func fetchGeolocationDatabase(license string) (string, error) {
 	// Get new database if it is outdated
 	if build.After(info.ModTime()) {
 		log.Print("Cached geo database is outdated, fetching...")
-		return targetFile, fetch()
+		if err != nil {
+			return "", err
+		}
+		return targetFile, nil
 	}
 
 	// If already existed and not out-of-date, do nothing
