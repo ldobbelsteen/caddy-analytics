@@ -1,6 +1,6 @@
 {
 	"scripts": {
-		"build": "snowpack build && go build"
+		"build": "snowpack build"
 	},
 	"devDependencies": {
 		"chart.js": "^3.0.0-beta.8",

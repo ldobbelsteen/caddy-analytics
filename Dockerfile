@@ -1,13 +1,9 @@
 FROM golang:alpine AS builder
-RUN apk add --no-cache nodejs npm
+RUN apk add --no-cache nodejs npm make
 WORKDIR /build
-COPY package.json package-lock.json ./
-RUN npm install
-COPY go.mod go.sum ./
-RUN go get -d
 COPY . .
-RUN npm run build
+RUN make
 
 FROM alpine
-COPY --from=builder /build/caddy-analytics /usr/bin/caddy-analytics
+COPY --from=builder /build/bin/caddy-analytics /usr/bin/caddy-analytics
 CMD ["caddy-analytics"]

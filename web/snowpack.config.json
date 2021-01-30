@@ -1,10 +1,9 @@
 {
-	"root": "web",
 	"mount": {
-		"web": "/"
+		"src": "/"
 	},
 	"buildOptions": {
-		"out": "web/dist"
+		"out": "build"
 	},
 	"optimize": {
 		"bundle": true,
