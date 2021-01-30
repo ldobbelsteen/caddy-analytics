@@ -1,5 +1,5 @@
 # Caddy Analytics
-Caddy web server log analyzer with web interface written in Go. It is akin to [GoAccess](https://github.com/allinurl/goaccess), but is specialized for Caddy.
+Caddy web server log analyzer with web interface written in Go. It is akin to [GoAccess](https://github.com/allinurl/goaccess), but specialized for Caddy.
 
 ## Building
 A Makefile is included to build a binary. It first bundles the web interface and then builds a Go binary with the web interface embedded. To build, simply run:
@@ -8,12 +8,13 @@ A Makefile is included to build a binary. It first bundles the web interface and
 make
 ```
 
-Then the executable binary can be found in the `bin` directory. There is also a Dockerfile included with which a Docker image can be built by running:
+The executable binary can then be found in the `bin` directory. There is also a Dockerfile included with which a Docker image can be built by running:
 
 ```
 docker build --tag caddy-analytics https://github.com/ldobbelsteen/caddy-analytics.git
 ```
-You can find pre-built and up-to-date images [here](https://hub.docker.com/r/ldobbelsteen/caddy-analytics).
+
+Pre-built images can be found [here](https://hub.docker.com/r/ldobbelsteen/caddy-analytics).
 
 ## Usage
 ```
@@ -32,7 +33,7 @@ caddy-analytics
 
 `--cache` specifies the number of seconds to cache a log analysis before discarding. Defaults to `10`.
 
-These options can also be passed through environment variables with their counterparts `GEO`, `LOGS`, `PORT` and `CACHE`. Environment variables have priority over command line arguments. The Docker image uses these environment variables for configuration. The simplest usage of the image is:
+These options can also be passed through environment variables with their counterparts `GEO`, `LOGS`, `PORT` and `CACHE`. Environment variables have priority over command line arguments. The Docker image uses these environment variables for configuration. The simplest usage of the Docker image is:
 
 ```
 docker run \
