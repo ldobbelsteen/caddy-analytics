@@ -12,6 +12,7 @@
 		"quotes": ["warn", "double"],
 		"semi": ["warn", "never"],
 		"prefer-const": "warn",
-		"no-var": "warn"
+		"no-var": "warn",
+		"comma-dangle": ["warn", "always-multiline"]
 	}
 }

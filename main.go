@@ -83,7 +83,7 @@ func main() {
 				wait.Done()
 				return
 			}
-			cache, err = json.MarshalIndent(stats, "", "	")
+			cache, err = json.MarshalIndent(stats, "", "    ")
 			if err != nil {
 				cache = nil
 				log.Print("Failed to convert to JSON: ", err)

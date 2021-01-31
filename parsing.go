@@ -15,9 +15,9 @@ import (
 
 type logEntry struct {
 	Stamp    float64 `json:"ts"`
-	Status   int     `json:"status"`
+	Status   uint16  `json:"status"`
 	Duration float64 `json:"duration"`
-	Size     int     `json:"size"`
+	Size     int64   `json:"size"`
 	Request  struct {
 		Address    string `json:"remote_addr"`
 		Protocol   string `json:"proto"`
@@ -44,7 +44,7 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 
 	// Create statistics instance
 	stats := newStatistics()
-	stats.LogDirectory = logDir
+	stats.Directory = logDir
 
 	// Validate log directory
 	info, err := os.Stat(logDir)
@@ -76,7 +76,7 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 		if err != nil {
 			return nil, err
 		}
-		stats.LogSizeBytes += info.Size()
+		stats.SizeBytes += info.Size()
 
 		// Create line scanner and decompress if the file is gzipped
 		scanner := bufio.NewScanner(file)
@@ -112,14 +112,14 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 	defer geo.Close()
 
 	// Get countries of all visitors observed
-	for _, counter := range stats.HostCounters {
-		for visitor := range counter.TotalMetrics.ObservedNonBots {
+	for _, counter := range stats.Hosts {
+		for visitor := range counter.Total.ObservedUsers {
 			var info struct {
 				Country struct {
 					Names map[string]string `maxminddb:"names"`
 				} `maxminddb:"country"`
 			}
-			ip := net.ParseIP(visitor.IP)
+			ip := net.ParseIP(visitor.IPAddress)
 			err := geo.Lookup(ip, &info)
 			if err != nil {
 				return nil, err
@@ -128,11 +128,11 @@ func parseLogs(logDir string, geoFile string) (*statistics, error) {
 			if country == "" {
 				country = "Unknown"
 			}
-			counter.NonBotVisitorCountries[country]++
+			counter.Visitors.Countries[country]++
 		}
 	}
 
 	// Save parse duration and return result
-	stats.ParseDurationSeconds = time.Since(startTime).Seconds()
+	stats.ParseDuration = time.Since(startTime).Seconds()
 	return stats, nil
 }

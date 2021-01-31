@@ -1,3 +1,19 @@
+// Remove all children of an HTML element
+export function removeAllChildren(element) {
+	while (element.firstChild) {
+		element.removeChild(element.firstChild)
+	}
+}
+
+// Perform sort on an array of arrays based on the first array
+export function parallelSort(arrays) {
+	const sortableArray = arrays[0]
+	const indices = Object.keys(sortableArray)
+	indices.sort((a, b) => sortableArray[b] - sortableArray[a])
+	const sortByIndices = (arr, ind) => ind.map(i => arr[i])
+	return arrays.map(arr => sortByIndices(arr, indices))
+}
+
 // Convert a number of bytes to a more human-readable format
 export function bytesToHumanReadable(bytes) {
 	const base = 1024
@@ -14,41 +30,10 @@ export function bytesToHumanReadable(bytes) {
 	}
 }
 
-// Convert a unix timestamp to locale date string
+// Convert a Unix timestamp to date string
 export function unixToDate(unix) {
 	const milliseconds = unix * 1000
 	const date = new Date(milliseconds)
 	const string = date.toLocaleDateString()
 	return string
-}
-
-// Round down a unix timestamp down to the hour
-export function roundUnixDownToHour(unix) {
-	return unix - (unix % (60 * 60))
-}
-
-// Remove all children of an HTML element
-export function removeAllChildren(element) {
-	while (element.firstChild) {
-		element.removeChild(element.firstChild)
-	}
-}
-
-// Create array of random colors of certain length
-export function createColorArray(length) {
-	const colors = new Array(length)
-	for (let i = 0; i < colors.length; i++) {
-		colors[i] = getRandomColor()
-	}
-	return colors
-}
-
-// Create random hex color string
-function getRandomColor() {
-	const letters = "0123456789ABCDEF".split("")
-	let color = "#"
-	for (let i = 0; i < 6; i++) {
-		color += letters[Math.floor(Math.random() * 16)]
-	}
-	return color
 }

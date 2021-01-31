@@ -1,74 +1,53 @@
-import * as tools from "./tools.js"
-import {
-	Chart,
-	ArcElement,
-	DoughnutController,
-	BarElement,
-	BarController,
-	LineElement,
-	PointElement,
-	LineController,
-	CategoryScale,
-	LinearScale,
-	Tooltip
-} from "chart.js"
-
-Chart.register(
-	ArcElement,
-	DoughnutController,
-	BarElement,
-	BarController,
-	LineElement,
-	PointElement,
-	LineController,
-	CategoryScale,
-	LinearScale,
-	Tooltip
-)
+import { removeAllChildren } from "./tools.js"
+import Charts from "./charts.js"
+import Data from "./data.js"
 
 window.onload = async () => {
-
-	// Fetch statistics/analytics
-	const raw = await fetch("/data", { cache: "no-store" })
-	const json = await raw.json()
-
-	// Write general log statistics
+	const data = await Data()
 	const header = document.querySelector("header")
-	header.querySelector("#range").textContent = tools.unixToDate(json.firstStampUnix) + " to " + tools.unixToDate(json.lastStampUnix)
-	header.querySelector("#duration").textContent = json.parseDurationSeconds.toFixed(2) + " seconds"
-	header.querySelector("#size").textContent = tools.bytesToHumanReadable(json.logSizeBytes)
-	header.querySelector("#directory").textContent = json.logDirectory
-
-	// Sort hosts by their total request count and populate the menu
 	const menu = document.querySelector("nav")
-	tools.removeAllChildren(menu)
-	Object.keys(json.hostCounters).sort((a, b) => {
-		const aVal = json.hostCounters[a].totalMetrics.requests
-		const bVal = json.hostCounters[b].totalMetrics.requests
-		return bVal - aVal
-	}).forEach(host => {
+	const main = document.querySelector("main")
+
+	header.querySelector("#range").textContent = data.firstStamp + " to " + data.lastStamp
+	header.querySelector("#duration").textContent = data.parseDuration
+	header.querySelector("#size").textContent = data.sizeBytes
+	header.querySelector("#directory").textContent = data.directory
+	
+	const dataUpdaters = []
+	Charts.forEach(chart => {
+		const div = document.createElement("div")
+		main.append(div)
+		const canvas = document.createElement("canvas")
+		div.append(canvas)
+		const updater = chart(canvas)
+		dataUpdaters.push(updater)
+	})
+	
+	const hosts = Object.keys(data.hosts)
+	hosts.sort((a, b) => {
+		return data.hosts[b].total.visitors - data.hosts[a].total.visitors
+	})
+
+	removeAllChildren(menu)
+	hosts.forEach(host => {
 		const button = document.createElement("div")
 		button.textContent = host
 		button.onclick = () => {
-			const main = document.querySelector("main")
-			tools.removeAllChildren(main)
-			createHourlyChart(main, json, host)
-			createOperatingSystemsChart(main, json, host)
-			createBrowsersChart(main, json, host)
-			createDevicesChart(main, json, host)
-			createLanguageChart(main, json, host)
+			dataUpdaters.forEach(updater => {
+				updater(data.hosts[host])
+			})
 		}
 		menu.appendChild(button)
 	})
 }
-
+/*
 function createHourlyChart(container, data, host) {
 	const div = document.createElement("div")
 	const canvas = document.createElement("canvas")
 	container.appendChild(div)
 	div.appendChild(canvas)
 
-	const end = tools.roundUnixDownToHour(data.lastStampUnix)
+	const end = roundUnixDownToHour(data.lastStampUnix)
 	let current = end - (4 * 24 * 60 * 60)
 	const filtered = []
 	do {
@@ -77,12 +56,12 @@ function createHourlyChart(container, data, host) {
 		if (metrics[current] != undefined) {
 			filtered.push({
 				x: timeString,
-				y: metrics[current].nonBotVisitors
+				y: metrics[current].nonBotVisitors,
 			})
 		} else {
 			filtered.push({
 				x: timeString,
-				y: 0
+				y: 0,
 			})
 		}
 		current += 60 * 60
@@ -94,17 +73,17 @@ function createHourlyChart(container, data, host) {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: filtered
-			}]
+				data: filtered,
+			}],
 		},
 		options: {
 			maintainAspectRatio: false,
 			scales: {
 				y: {
-					beginAtZero: true
-				}
-			}
-		}
+					beginAtZero: true,
+				},
+			},
+		},
 	})
 }
 
@@ -119,7 +98,7 @@ function createOperatingSystemsChart(container, data, host) {
 	Object.keys(scopedData).forEach(key => {
 		filtered.push({
 			x: key,
-			y: scopedData[key]
+			y: scopedData[key],
 		})
 	})
 	filtered.sort((a, b) => {
@@ -132,17 +111,17 @@ function createOperatingSystemsChart(container, data, host) {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: filtered
-			}]
+				data: filtered,
+			}],
 		},
 		options: {
 			maintainAspectRatio: false,
 			scales: {
 				y: {
-					beginAtZero: true
-				}
-			}
-		}
+					beginAtZero: true,
+				},
+			},
+		},
 	})
 }
 
@@ -163,12 +142,12 @@ function createDevicesChart(container, fullData, host) {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: data
-			}]
+				data: data,
+			}],
 		},
 		options: {
-			maintainAspectRatio: false
-		}
+			maintainAspectRatio: false,
+		},
 	})
 }
 
@@ -189,17 +168,17 @@ function createBrowsersChart(container, fullData, host) {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: data
-			}]
+				data: data,
+			}],
 		},
 		options: {
 			maintainAspectRatio: false,
 			scales: {
 				y: {
-					beginAtZero: true
-				}
-			}
-		}
+					beginAtZero: true,
+				},
+			},
+		},
 	})
 }
 
@@ -220,16 +199,17 @@ function createLanguageChart(container, fullData, host) {
 			datasets: [{
 				backgroundColor: "rgb(255, 99, 132)",
 				borderColor: "rgb(255, 99, 132)",
-				data: data
-			}]
+				data: data,
+			}],
 		},
 		options: {
 			maintainAspectRatio: false,
 			scales: {
 				y: {
-					beginAtZero: true
-				}
-			}
-		}
+					beginAtZero: true,
+				},
+			},
+		},
 	})
 }
+*/
